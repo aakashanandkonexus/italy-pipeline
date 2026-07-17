@@ -272,6 +272,24 @@ kbd{font-family:var(--mono);font-size:11px;background:var(--surface-3);border:1p
 .badge-role.manager{background:var(--brand-wash);color:var(--brand-ink)}
 .badge-role.operator{background:var(--green-wash);color:var(--green)}
 .badge-role.viewer{background:var(--surface-3);color:var(--muted)}
+/* allocation overview grid */
+.pipeline-grid td,.pipeline-grid th{vertical-align:top;border-right:1px solid var(--border-2)}
+.pipeline-grid .sticky-col{position:sticky;left:0;background:var(--surface);z-index:2;box-shadow:1px 0 0 var(--border);min-width:96px}
+.pipeline-grid thead .sticky-col{z-index:3;background:var(--surface-2)}
+.pipeline-grid .pq-port .sticky-col,.pipeline-grid tr.pq-port td{background:var(--surface-2);font-weight:750;letter-spacing:.05em;text-transform:uppercase;font-size:11px;color:var(--brand-ink)}
+.pq-cell{min-width:186px}
+.pq-cell.empty{background:repeating-linear-gradient(45deg,transparent,transparent 7px,var(--surface-2) 7px,var(--surface-2) 8px)}
+.pq-arr{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-bottom:5px}
+.pq-alloc{display:flex;justify-content:space-between;gap:6px;align-items:center;background:var(--brand-wash);color:var(--brand-ink);border-radius:6px;padding:3px 7px;margin-bottom:3px;font-size:11.5px;cursor:pointer}
+.pq-alloc:hover{outline:1px solid var(--brand)}
+.pq-alloc b{font-family:var(--mono)}
+.pq-rem{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.05em;margin-top:4px}
+.pq-rem.pos{color:var(--green)}
+.pq-rem.neg{color:var(--amber)}
+.pq-add{margin-top:6px;font-size:11px;color:var(--brand);border:1px dashed var(--border);border-radius:6px;padding:3px 7px;width:100%;text-align:center}
+.pq-add:hover{border-color:var(--brand);background:var(--brand-wash)}
+.pq-h{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.tbl-center td,.tbl-center th{text-align:center!important}
 
 /* Italy watermark */
 .italy-wrap{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
@@ -3644,7 +3662,9 @@ const ICON={
  layers:'<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/>',
  map:'<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/>',
  report:'<path d="M8 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2h-2M9 3a1 1 0 001 1h4a1 1 0 001-1M9 3a1 1 0 011-1h4a1 1 0 011 1M8 12h8M8 16h5M8 8h1"/>',
- bank:'<path d="M3 21h18M4 21V10M20 21V10M12 3L3 8h18L12 3M7 21V13M12 21V13M17 21V13"/>'
+ bank:'<path d="M3 21h18M4 21V10M20 21V10M12 3L3 8h18L12 3M7 21V13M12 21V13M17 21V13"/>',
+ trend:'<path d="M3 17l6-6 4 4 8-8M21 7v5M21 7h-5"/>',
+ grid:'<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>'
 };
 const svg=(n,w=18)=>`<svg width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICON[n]||''}</svg>`;
 const ITALY_MAP=`<svg class="italy-map" viewBox="21.7 22.0 870.6 1038.0" xmlns="http://www.w3.org/2000/svg" fill="currentColor" aria-hidden="true"><path d="M74.3 342.0 L178.4 280.0 L245.2 314.0 L282.4 365.0 L334.4 448.0 L393.9 510.0 L431.0 550.0 L527.6 598.0 L572.2 635.0 L616.8 658.0 L676.3 715.0 L706.0 780.0 L680.0 910.0 L746.9 845.0 L787.7 812.0 L795.2 680.0 L856.1 738.0 L884.3 740.0 L850.9 658.0 L771.4 608.0 L720.9 530.0 L631.7 518.0 L572.2 470.0 L520.2 358.0 L451.8 310.0 L431.0 176.0 L542.5 155.0 L527.6 70.0 L371.6 30.0 L304.7 34.0 L185.8 108.0 L118.9 110.0 L37.2 140.0 L29.7 210.0 L78.0 308.0 L74.3 342.0 Z"/><path d="M672.5 900.0 L594.5 915.0 L468.2 922.0 L439.9 940.0 L457.0 965.0 L557.4 1010.0 L639.1 1052.0 L652.5 1015.0 L639.1 970.0 L654.0 910.0 L672.5 900.0 Z"/><path d="M126.3 600.0 L193.2 595.0 L230.4 610.0 L245.2 670.0 L226.7 800.0 L185.8 830.0 L144.9 805.0 L139.7 715.0 L126.3 640.0 L126.3 600.0 Z"/></svg>`;
@@ -3932,9 +3952,11 @@ function agg(){
 /* ---------- F. ROUTER + SHELL ---------- */
 const VIEWS=[
   {id:'dashboard', label:'Dashboard',          icon:'dashboard', group:'Overview'},
+  {id:'pipeline',  label:'Allocation Overview', icon:'grid',      group:'Overview'},
   {id:'shipments', label:'Shipments & BLs',    icon:'ship',      group:'Pipeline', count:()=>Store.d.shipments.length},
   {id:'contracts', label:'Sales Contracts',    icon:'contract',  group:'Pipeline', count:()=>new Set(Store.d.contracts.map(c=>c['S Number'])).size},
   {id:'credit',    label:'Credit & Receivables',icon:'credit',   group:'Pipeline'},
+  {id:'projections',label:'Projections',        icon:'trend',     group:'Pipeline'},
   {id:'lifecycle', label:'Contract Lifecycle', icon:'lifecycle', group:'Search'},
   {id:'customer',  label:'Customer 360',        icon:'building',  group:'Search'},
   {id:'reports',   label:'Reports',             icon:'report',    group:'System'},
@@ -4863,7 +4885,8 @@ const REPORTS=[
   {key:'credit',   title:'Credit Limits',                 desc:'Approved credit line, open receivables, available line and utilisation for each insured customer.', icon:'credit', build:buildCreditReport},
   {key:'ar',       title:'Account Receivables',           desc:'Full receivables ledger with amounts, due dates, paid dates and payment performance.', icon:'receipt', build:buildARReport},
   {key:'contracts',title:'Sales Contracts',               desc:'All contract lines with quota, QP, tonnage, terms, BL allocation, progress and pricing.', icon:'contract', build:buildContractsReport},
-  {key:'shipments',title:'Shipments / BLs',               desc:'Every BL with Steinweg ref, tracking, cost breakdown, invoice status and financier.', icon:'ship',   build:buildShipmentsReport}
+  {key:'shipments',title:'Shipments / BLs',               desc:'Every BL with Steinweg ref, tracking, cost breakdown, invoice status and financier.', icon:'ship',   build:buildShipmentsReport},
+  {key:'custom',   title:'Custom report',                 desc:'Pick any fields from the pipeline dataset, arrange the columns yourself and generate a bespoke report.', icon:'grid', custom:true}
 ];
 async function exportReport(key){
   if(!Auth.can('export')){toast('You do not have export permission','amber');return;}
@@ -4891,24 +4914,300 @@ function previewReport(key){
     <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button>${Auth.can('export')?`<button class="btn btn-primary" id="rpExp">${svg('download',15)}<span>Export to Excel</span></button>`:''}</div>`,{wide:true,noFocus:true});
   const b=$('#rpExp');if(b)b.onclick=()=>exportReport(key);
 }
+/* ----- custom report builder ----- */
+function mainDatasetFields(){return [
+  {k:'sNumber',label:'S-Number',g:'Contract'},{k:'pNumber',label:'P-Number',g:'Contract'},
+  {k:'customer',label:'Customer',g:'Contract'},{k:'product',label:'Product',g:'Contract'},
+  {k:'spec',label:'Diameter/Spec',g:'Contract'},{k:'port',label:'Service Port',g:'Contract'},
+  {k:'quota',label:'Delivery Quota',g:'Contract'},{k:'qp',label:'QP',g:'Contract'},
+  {k:'tonnage',label:'Tonnage',g:'Contract',num:true},{k:'lots',label:'Lots',g:'Contract',num:true},
+  {k:'premium',label:'Premium',g:'Contract',num:true},{k:'terms',label:'Payment Terms',g:'Contract'},
+  {k:'pricedTon',label:'Priced t',g:'Pricing',num:true},{k:'openTon',label:'Open t',g:'Pricing',num:true},
+  {k:'finalPrice',label:'Final EUR/t',g:'Pricing',num:true},{k:'status',label:'Status',g:'Pricing'},
+  {k:'release',label:'Release Status',g:'Progress'},{k:'customs',label:'Customs Status',g:'Progress'},
+  {k:'deliveryDate',label:'Delivery Date',g:'Progress'},{k:'receivable',label:'Receivable Date',g:'Progress'},
+  {k:'bl',label:'BL Allocation',g:'Shipment'},{k:'shPort',label:'BL Port',g:'Shipment'},
+  {k:'purchase',label:'Purchase',g:'Shipment'},{k:'eta',label:'BL ETA',g:'Shipment'},
+  {k:'netWeight',label:'BL Net t',g:'Shipment',num:true},{k:'financier',label:'Financier',g:'Shipment'},
+  {k:'creditLine',label:'Credit Line',g:'Customer',num:true},{k:'openAR',label:'Customer Open AR',g:'Customer',num:true},
+  {k:'availLine',label:'Available Line',g:'Customer',num:true},{k:'vat',label:'VAT',g:'Customer'}
+];}
+function mainDatasetRows(){
+  const dir=customerDirectory();
+  return Store.d.contracts.map(deriveContract).map(c=>{
+    const sh=c._shipment||{};const e=dir[custKey(c.Customer)];
+    const line=e?creditLine(e):null,ar=e?openAR(e):null;
+    return {sNumber:c['S Number']||'',pNumber:c['P number']||'',customer:c.Customer||'',product:c.Product||'',
+      spec:c.Spec||'',port:c['Service Port']||'',quota:fmtMY(c.Quota),qp:c.QP||'',tonnage:num(c.Tonnage)||0,
+      lots:_r0(c._lots),premium:num(c.Premium)??'',terms:c['Payment Terms']||'',pricedTon:_r2(c._pricedTon),
+      openTon:_r2(c._openTon),finalPrice:_r2(c._finalPrice),status:statusText(c),release:c['Release Status']||'',
+      customs:c['Customs Status']||'',deliveryDate:c._delivery||'',receivable:c._receivable||'',bl:c['BL Allocation']||'',
+      shPort:sh['PORT OF DELIVERY']||'',purchase:sh['PURCHASE NUMBER']||c['P number']||'',eta:sh.ETA||'',
+      netWeight:sh['NET WEIGHT']!=null?_r2(sh['NET WEIGHT']):'',financier:sh['FINANCIER']||'',
+      creditLine:_r2(line),openAR:_r2(ar),availLine:(line!=null&&ar!=null)?_r2(line-ar):'',vat:(e&&e.credit&&e.credit['VAT CODE'])||''};
+  });
+}
+const _customDefault=['sNumber','customer','product','quota','tonnage','status','receivable'];
+function openCustomReport(){
+  const fields=mainDatasetFields();
+  const groups=[...new Set(fields.map(f=>f.g))];
+  openModal(`<div class="modal-h">${svg('grid',19)}<h3>Custom report — choose fields</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="hint" style="margin-bottom:12px">Pick the fields to include (one row per contract line, joined with its BL and customer). You'll arrange the column order next.</div>
+      ${groups.map(g=>`<div style="margin-bottom:14px"><div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:7px">${esc(g)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${fields.filter(f=>f.g===g).map(f=>`<label class="chk" style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12.5px"><input type="checkbox" value="${f.k}" ${_customDefault.includes(f.k)?'checked':''}> ${esc(f.label)}</label>`).join('')}</div></div>`).join('')}
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" id="cfNone">Clear all</button><button class="btn btn-ghost" id="cfAll">Select all</button><button class="btn btn-primary" id="cfGo">Proceed →</button></div>`,{wide:true,noFocus:true});
+  const box=modalEl();
+  $('#cfAll').onclick=()=>box.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=true);
+  $('#cfNone').onclick=()=>box.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+  $('#cfGo').onclick=()=>{
+    const order=[...box.querySelectorAll('input[type=checkbox]:checked')].map(c=>c.value);
+    if(!order.length){toast('Select at least one field','amber');return;}
+    openCustomStructure(order);
+  };
+}
+function openCustomStructure(order){
+  const fields=mainDatasetFields();const byKey=Object.fromEntries(fields.map(f=>[f.k,f]));
+  const rows=mainDatasetRows();
+  openModal(`<div class="modal-h">${svg('grid',19)}<h3>Custom report — arrange columns</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b" style="padding:16px">
+      <div class="hint" style="margin-bottom:8px">Drag the columns to reorder them. The preview updates live.</div>
+      <div id="csChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+      <div id="csPrev"></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" id="csBack">← Fields</button><button class="btn btn-ghost" onclick="closeModal()">Close</button>${Auth.can('export')?`<button class="btn btn-primary" id="csExp">${svg('download',15)}<span>Generate &amp; export</span></button>`:''}</div>`,{wide:true,noFocus:true});
+  let drag=null;
+  const draw=()=>{
+    const chips=$('#csChips');
+    chips.innerHTML=order.map((k,i)=>`<div class="alloc-chip" draggable="true" data-i="${i}" style="display:flex;align-items:center;gap:7px;background:var(--brand-wash);color:var(--brand-ink);border:1px solid var(--brand);border-radius:8px;padding:6px 10px;font-size:12.5px;cursor:grab">
+      ${svg('layers',12)}<span>${esc(byKey[k].label)}</span><span data-rm="${i}" style="cursor:pointer;opacity:.7;font-weight:700">✕</span></div>`).join('')||`<div class="t-sub">No columns selected.</div>`;
+    chips.querySelectorAll('[data-i]').forEach(ch=>{
+      ch.addEventListener('dragstart',e=>{drag=+ch.dataset.i;ch.style.opacity='.4';});
+      ch.addEventListener('dragend',()=>{ch.style.opacity='1';});
+      ch.addEventListener('dragover',e=>{e.preventDefault();});
+      ch.addEventListener('drop',e=>{e.preventDefault();const to=+ch.dataset.i;if(drag==null||drag===to)return;const[m]=order.splice(drag,1);order.splice(to,0,m);drag=null;draw();});
+    });
+    chips.querySelectorAll('[data-rm]').forEach(x=>x.addEventListener('click',e=>{e.stopPropagation();order.splice(+x.dataset.rm,1);draw();}));
+    const show=rows.slice(0,60);
+    $('#csPrev').innerHTML=order.length?`<div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr>${order.map(k=>`<th class="${byKey[k].num?'num':''}">${esc(byKey[k].label)}</th>`).join('')}</tr></thead>
+      <tbody>${show.map(r=>`<tr>${order.map(k=>`<td class="${byKey[k].num?'num mono':''}">${esc(r[k]===''||r[k]==null?'—':r[k])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <div class="hint" style="margin-top:8px">${rows.length} rows total${rows.length>show.length?' · previewing first '+show.length:''}</div>`:`<div class="empty" style="padding:30px">${svg('grid',28)}<div style="margin-top:8px">Add at least one column.</div></div>`;
+  };
+  draw();
+  $('#csBack').onclick=()=>openCustomReport();
+  const exp=$('#csExp');if(exp)exp.onclick=()=>exportCustom(order);
+}
+async function exportCustom(order){
+  if(!Auth.can('export')){toast('You do not have export permission','amber');return;}
+  if(!order.length){toast('Add at least one column','amber');return;}
+  const byKey=Object.fromEntries(mainDatasetFields().map(f=>[f.k,f]));
+  const rows=mainDatasetRows().map(r=>{const o={};order.forEach(k=>o[byKey[k].label]=r[k]);return o;});
+  try{await ensureXLSX();}catch(e){toast('Could not load the export engine (needs an internet connection)','amber');return;}
+  const wb=XLSX.utils.book_new();const ws=XLSX.utils.json_to_sheet(rows);
+  const heads=order.map(k=>byKey[k].label);
+  ws['!cols']=heads.map(h=>({wch:Math.min(42,Math.max(h.length+2,...rows.map(r=>String(r[h]??'').length+2)))}));
+  ws['!autofilter']={ref:XLSX.utils.encode_range({s:{c:0,r:0},e:{c:heads.length-1,r:rows.length}})};
+  XLSX.utils.book_append_sheet(wb,ws,'Custom report');
+  XLSX.writeFile(wb,'KRG-custom-'+iso(new Date())+'.xlsx');
+  audit('custom report exported',order.length+' cols');toast('Custom report exported','green');
+}
 RENDER.reports=function(v){
   v.append(el('div',{class:'callout grey',style:'margin-bottom:16px',html:`${svg('report',17)}<div>Generate a report from live pipeline data, preview it, and export to a formatted Excel workbook (with filters and sized columns).${Auth.can('export')?'':' <b>Export needs the “export” permission</b> — ask an administrator.'}</div>`}));
   const grid=el('div',{class:'grid',style:'grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:15px'});
   REPORTS.forEach(rep=>{
-    let n=0;try{n=rep.build().rows.length;}catch(e){}
+    let n=0,meta='';try{n=rep.custom?0:rep.build().rows.length;meta=rep.custom?'build your own':n+' rows';}catch(e){meta=rep.custom?'build your own':'—';}
+    const buttons=rep.custom
+      ? `<button class="btn btn-primary btn-sm" data-custom="1">${svg('grid',14)}<span>Build report</span></button>`
+      : `<button class="btn btn-ghost btn-sm" data-prev="${rep.key}">${svg('search',14)}<span>Preview</span></button>
+         <button class="btn btn-primary btn-sm" data-exp="${rep.key}" ${Auth.can('export')?'':'disabled style="opacity:.5;cursor:not-allowed"'}>${svg('download',14)}<span>Export .xlsx</span></button>`;
     const card=el('div',{class:'card',html:`<div class="card-b">
       <div style="display:flex;align-items:center;gap:11px;margin-bottom:9px"><div class="avatar" style="border-radius:9px;background:var(--brand-wash);color:var(--brand)">${svg(rep.icon,17)}</div>
-        <div><h3 style="font-size:14.5px;font-weight:700">${esc(rep.title)}</h3><div class="hint">${n} rows</div></div></div>
+        <div><h3 style="font-size:14.5px;font-weight:700">${esc(rep.title)}</h3><div class="hint">${meta}</div></div></div>
       <p class="t-sub" style="font-size:12.5px;margin-bottom:14px;line-height:1.5">${esc(rep.desc)}</p>
-      <div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" data-prev="${rep.key}">${svg('search',14)}<span>Preview</span></button>
-        <button class="btn btn-primary btn-sm" data-exp="${rep.key}" ${Auth.can('export')?'':'disabled style="opacity:.5;cursor:not-allowed"'}>${svg('download',14)}<span>Export .xlsx</span></button></div>
+      <div style="display:flex;gap:8px">${buttons}</div>
     </div>`});
     grid.append(card);
   });
   v.append(grid);
   $$('#view [data-prev]').forEach(b=>b.onclick=()=>previewReport(b.dataset.prev));
   $$('#view [data-exp]').forEach(b=>b.onclick=()=>{if(Auth.can('export'))exportReport(b.dataset.exp);});
+  $$('#view [data-custom]').forEach(b=>b.onclick=()=>openCustomReport());
 };
+
+/* ---------- G9. PROJECTIONS + ALLOCATION OVERVIEW ---------- */
+const blKey=x=>String(x||'').trim().toUpperCase();
+function specLabel(d){const s=String(d||'');if(/wire\s*rod/i.test(s))return'Wire Rod';const m=s.match(/(\d+)\s*"/)||s.match(/(\d+)\s*inch/i);return m?m[1]+' Inch':(s||'—');}
+function monthShort(v){const d=parseDate(v);return d?d.toLocaleString('en-GB',{month:'short'}).toUpperCase():'';}
+function titlePort(p){p=String(p||'');return p?p.charAt(0)+p.slice(1).toLowerCase():'';}
+function projectionModel(){
+  const ships=Store.d.shipments.map(deriveShipment);
+  const contracts=Store.d.contracts.map(deriveContract);
+  const map={};
+  ships.forEach(s=>{map[blKey(s['BL NUMBER'])]={s,allocs:[]};});
+  contracts.forEach(c=>{const k=blKey(c['BL Allocation']);if(k&&map[k])map[k].allocs.push(c);});
+  return map;
+}
+RENDER.projections=function(v){
+  const map=projectionModel();
+  const entries=Object.values(map);
+  const allocated=entries.filter(e=>e.allocs.length).sort((a,b)=>String(a.s['PURCHASE NUMBER']).localeCompare(String(b.s['PURCHASE NUMBER']))||String(a.s['BL NUMBER']).localeCompare(String(b.s['BL NUMBER'])));
+  const unallocated=entries.filter(e=>!e.allocs.length).sort((a,b)=>String(a.s['PURCHASE NUMBER']).localeCompare(String(b.s['PURCHASE NUMBER']))||String(a.s['BL NUMBER']).localeCompare(String(b.s['BL NUMBER'])));
+  if(Auth.can('export'))topBtn('Export contracts','download','export',()=>exportReport('contracts'));
+  // Allocated
+  const card=el('div',{class:'card',style:'margin-bottom:16px'});
+  card.innerHTML=`<div class="card-h">${svg('trend',17)}<h3>Allocated BLs — projected receivables</h3><div class="hint">receivable = delivery date + term, or 15th of the delivery-quota month + term when no delivery date (rolled to a working day)</div></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+  const t=el('table',{class:'tbl tbl-center'});
+  t.innerHTML=`<thead><tr><th>P-Number</th><th>Quota</th><th>BL Number</th><th>Spec</th><th>S-Number</th><th>Customer</th><th class="num">Allocated t</th><th>Delivery Q</th><th>Receivable</th><th class="num">Unsold t</th></tr></thead>`;
+  const bd=el('tbody');let lastP=null,totalUnsold=0;
+  allocated.forEach(e=>{
+    const net=num(e.s['NET WEIGHT'])||0;
+    const alloc=e.allocs.reduce((x,c)=>x+(num(c.Tonnage)||0),0);
+    const unsold=net-alloc;totalUnsold+=unsold;
+    e.allocs.sort((a,b)=>(parseDate(a.Quota)||0)-(parseDate(b.Quota)||0));
+    e.allocs.forEach((c,i)=>{
+      const pShown=e.s['PURCHASE NUMBER']!==lastP;const blFirst=i===0;
+      bd.append(el('tr',{class:'rowlink',onclick:()=>lifecycleLookup(c['S Number']),html:`
+        <td class="mono t-strong">${pShown?esc(e.s['PURCHASE NUMBER']||'—'):''}</td>
+        <td class="mono t-sub">${pShown?esc(quotaLabel(e.s['QUOTA MONTH'])):''}</td>
+        <td class="mono ${blFirst?'t-strong':''}">${blFirst?esc(e.s['BL NUMBER']):''}</td>
+        <td class="t-sub">${blFirst?esc(specLabel(e.s.DIAMETER)):''}</td>
+        <td class="mono t-strong">${esc(c['S Number']||'—')}</td>
+        <td>${esc(custShort(c.Customer))}</td>
+        <td class="num">${fmtN(c.Tonnage)}</td>
+        <td class="mono t-sub">${fmtMY(c.Quota)}</td>
+        <td class="mono">${fmtDate(c._receivable)}</td>
+        <td class="num" style="color:${blFirst?(unsold>0.01?'var(--amber)':unsold<-0.01?'var(--amber)':'var(--muted)'):'inherit'}">${blFirst?fmtN(unsold):''}</td>`}));
+      if(pShown)lastP=e.s['PURCHASE NUMBER'];
+    });
+  });
+  bd.append(el('tr',{html:`<td colspan="9" style="text-align:right;font-weight:700;background:var(--surface-2)">Total unsold — allocated BLs</td><td class="num" style="font-weight:700;background:var(--surface-2);color:var(--amber)">${fmtN(totalUnsold)}</td>`}));
+  t.append(bd);card.querySelector('.tbl-wrap').append(t);
+  if(!allocated.length)card.querySelector('.tbl-wrap').innerHTML=emptyBox('trend','No allocated BLs','Allocate a BL to a contract line and it will project here.');
+  v.append(card);
+  // Unallocated
+  const uTot=unallocated.reduce((x,e)=>x+(num(e.s['NET WEIGHT'])||0),0);
+  const uc=el('div',{class:'card'});
+  uc.innerHTML=`<div class="card-h">${svg('ship',17)}<h3>Unallocated BLs</h3><div class="hint">arrived / in-transit material not yet allocated to any contract</div><div class="sp"></div><span class="chip amber">${fmtN(uTot)} t unsold</span></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+  const t2=el('table',{class:'tbl tbl-center'});
+  t2.innerHTML=`<thead><tr><th>P-Number</th><th>Quota</th><th>BL Number</th><th>Spec</th><th>Port</th><th>ETA</th><th class="num">Net / Unsold t</th></tr></thead>`;
+  const b2=el('tbody');
+  unallocated.forEach(e=>{b2.append(el('tr',{class:'rowlink',onclick:()=>editShipment(e.s.id),html:`<td class="mono t-strong">${esc(e.s['PURCHASE NUMBER']||'—')}</td><td class="mono t-sub">${esc(quotaLabel(e.s['QUOTA MONTH']))}</td><td class="mono t-strong">${esc(e.s['BL NUMBER'])}</td><td class="t-sub">${esc(specLabel(e.s.DIAMETER))}</td><td>${esc(e.s['PORT OF DELIVERY'])}</td><td class="mono">${fmtDate(e.s.ETA)}</td><td class="num" style="color:var(--amber)">${fmtN(num(e.s['NET WEIGHT'])||0)}</td>`}));});
+  b2.append(el('tr',{html:`<td colspan="6" style="text-align:right;font-weight:700;background:var(--surface-2)">Total unsold — unallocated BLs</td><td class="num" style="font-weight:700;background:var(--surface-2);color:var(--amber)">${fmtN(uTot)}</td>`}));
+  t2.append(b2);uc.querySelector('.tbl-wrap').append(t2);
+  if(!unallocated.length)uc.querySelector('.tbl-wrap').innerHTML=emptyBox('check','Everything allocated','No unallocated BLs.');
+  v.append(uc);
+};
+
+/* ----- Allocation Overview grid ----- */
+function allocByBLMap(){const m={};Store.d.contracts.map(deriveContract).forEach(c=>{const k=blKey(c['BL Allocation']);if(k)(m[k]=m[k]||[]).push(c);});return m;}
+let pipeF={product:'all'};
+RENDER.pipeline=function(v){
+  let ships=Store.d.shipments.map(deriveShipment);
+  if(pipeF.product!=='all')ships=ships.filter(s=>s._product===pipeF.product);
+  const allocBL=allocByBLMap();
+  const canEdit=Auth.can('edit_contract');
+  const pm={};
+  ships.forEach(s=>{const p=s['PURCHASE NUMBER']||'—';(pm[p]=pm[p]||{p,quota:s['QUOTA MONTH'],arrival:s['DELIVERY MONTH'],bls:[],total:0});pm[p].bls.push(s);pm[p].total+=num(s['NET WEIGHT'])||0;});
+  const purchases=Object.values(pm).sort((a,b)=>(parseDate(a.quota)||0)-(parseDate(b.quota)||0));
+  const ports=[...new Set(ships.map(s=>s['PORT OF DELIVERY']).filter(Boolean))].sort();
+  const bar=el('div',{class:'toolbar'});
+  bar.innerHTML=`<div class="seg" id="pipeSeg">
+    <button data-p="all" class="${pipeF.product==='all'?'on':''}">All</button>
+    <button data-p="Billets" class="${pipeF.product==='Billets'?'on':''}">Billets</button>
+    <button data-p="Wire Rods" class="${pipeF.product==='Wire Rods'?'on':''}">Wire Rods</button>
+  </div>`;
+  v.append(bar);
+  $$('#pipeSeg button').forEach(b=>b.onclick=()=>{pipeF.product=b.dataset.p;route();});
+  v.append(el('div',{class:'callout grey',style:'margin-bottom:14px',html:`${svg('grid',17)}<div>Arrivals per purchase (columns) by port &amp; diameter (rows). Each cell shows the arrival tonnage, deliveries allocated against it, and the remaining balance. ${canEdit?'Use <b>+ allocate</b> to add, or click an allocation to change or remove it.':'Read-only — you need contract-edit permission to change allocations.'}</div>`}));
+  if(!purchases.length){v.append(emptyBoxEl('grid','No purchases in this view','Switch the product filter or add shipments.'));return;}
+  const wrap=el('div',{class:'card'});
+  wrap.innerHTML=`<div class="card-h">${svg('grid',17)}<h3>Purchase allocation overview</h3></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+  const tbl=el('table',{class:'tbl pipeline-grid'});
+  let head=`<thead><tr><th class="sticky-col">Port / Diameter</th>`;
+  purchases.forEach(p=>{head+=`<th><div class="pq-h"><span class="chip blue">${esc(quotaLabel(p.quota))}</span><span class="mono t-strong">${esc(p.p)}</span></div><div class="hint">${esc(fmtMY(p.arrival))} · arrival ${fmtN(p.total)} t</div></th>`;});
+  head+=`</tr></thead>`;
+  let body=`<tbody>`;
+  ports.forEach(port=>{
+    const portShips=ships.filter(s=>s['PORT OF DELIVERY']===port);
+    const specs=[...new Set(portShips.map(s=>specLabel(s.DIAMETER)))].sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);if(!isNaN(na)&&!isNaN(nb))return na-nb;return String(a).localeCompare(String(b));});
+    body+=`<tr class="pq-port"><td class="sticky-col">${esc(port)}</td>${purchases.map(()=>'<td></td>').join('')}</tr>`;
+    specs.forEach(spec=>{
+      body+=`<tr><td class="sticky-col t-strong">${esc(spec)}</td>`;
+      purchases.forEach(p=>{
+        const bls=p.bls.filter(s=>s['PORT OF DELIVERY']===port&&specLabel(s.DIAMETER)===spec);
+        if(!bls.length){body+=`<td class="pq-cell empty"></td>`;return;}
+        const arrival=bls.reduce((x,s)=>x+(num(s['NET WEIGHT'])||0),0);
+        const allocs=[];bls.forEach(s=>{(allocBL[blKey(s['BL NUMBER'])]||[]).forEach(c=>allocs.push(c));});
+        allocs.sort((a,b)=>(parseDate(a.Quota)||0)-(parseDate(b.Quota)||0));
+        const rem=arrival-allocs.reduce((x,c)=>x+(num(c.Tonnage)||0),0);
+        let inner=`<div class="pq-arr">ARRIVAL ${fmtN(arrival)}</div>`;
+        allocs.forEach(c=>{inner+=`<div class="pq-alloc" data-alloc="${c.id}" title="${esc(c['S Number']||'')} · click to edit"><span>${monthShort(c.Quota)} · ${esc(custShort(c.Customer))}</span><b>-${fmtN(c.Tonnage)}</b></div>`;});
+        inner+=`<div class="pq-rem ${rem>0.01?'pos':rem<-0.01?'neg':''}">REMAINING ${fmtN(rem)}</div>`;
+        if(canEdit)inner+=`<button class="pq-add" data-add="${esc(port)}~~${esc(spec)}~~${esc(p.p)}">+ allocate</button>`;
+        body+=`<td class="pq-cell">${inner}</td>`;
+      });
+      body+=`</tr>`;
+    });
+  });
+  body+=`</tbody>`;tbl.innerHTML=head+body;wrap.querySelector('.tbl-wrap').append(tbl);v.append(wrap);
+  wrap.querySelectorAll('[data-alloc]').forEach(x=>x.onclick=()=>editAllocation(x.dataset.alloc));
+  wrap.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const[port,spec,p]=b.dataset.add.split('~~');addAllocation(port,spec,p);});
+};
+function emptyBoxEl(ic,h,s){const d=el('div');d.innerHTML=emptyBox(ic,h,s);return d;}
+function blsForCell(port,spec,pnum){return Store.d.shipments.filter(s=>s['PORT OF DELIVERY']===port&&specLabel(s.DIAMETER)===spec&&(s['PURCHASE NUMBER']||'—')===pnum);}
+function custDatalist(){return [...new Set([...Store.d.credit.map(c=>c['Full Company Name']||c['Short Name']),...Store.d.contracts.map(c=>c.Customer)].filter(Boolean))].sort();}
+function firstOfMonth(monthVal){if(!monthVal)return null;const m=String(monthVal);return /^\d{4}-\d{2}$/.test(m)?m+'-01':(parseDate(m)?iso(new Date(parseDate(m).getFullYear(),parseDate(m).getMonth(),1)):null);}
+function addAllocation(port,spec,pnum){
+  if(!requirePerm('edit_contract','allocate'))return;
+  const bls=blsForCell(port,spec,pnum);
+  if(!bls.length){toast('No BLs in this cell to allocate','amber');return;}
+  const custs=custDatalist();
+  openModal(`<div class="modal-h">${svg('grid',19)}<h3>Allocate delivery</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="hint" style="margin-bottom:12px">${esc(titlePort(port))} · ${esc(spec)} · purchase ${esc(pnum)}</div>
+      <div class="form-grid">
+        <div class="fg"><label>Against BL</label><select class="inp" id="al_bl">${bls.map(s=>`<option value="${esc(s['BL NUMBER'])}">${esc(s['BL NUMBER'])} · ${fmtN(num(s['NET WEIGHT'])||0)} t</option>`).join('')}</select></div>
+        <div class="fg"><label>Customer</label><input class="inp" id="al_cust" list="alCust"><datalist id="alCust">${custs.map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+        <div class="fg"><label>Delivery quota (month)</label><input class="inp" id="al_q" type="month"></div>
+        <div class="fg"><label>Tonnage</label><input class="inp" id="al_ton" type="number" step="any"></div>
+        <div class="fg"><label>S-Number <span class="t-sub" style="font-weight:400">(optional)</span></label><input class="inp" id="al_sn" placeholder="e.g. S1400ALB"></div>
+        <div class="fg"><label>Payment terms</label><select class="inp" id="al_pt"><option value=""></option>${Store.d.paymentTerms.map(p=>`<option>${esc(p.term)}</option>`).join('')}</select></div>
+      </div>
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="alSave">Add allocation</button></div>`);
+  $('#alSave').onclick=()=>{
+    const bl=gv('al_bl'),cust=gv('al_cust'),ton=gvn('al_ton'),q=firstOfMonth(gv('al_q'));
+    if(!cust){toast('Customer required','amber');return;}
+    if(!ton||ton<=0){toast('Enter a tonnage','amber');return;}
+    const shipDia=(bls.find(s=>s['BL NUMBER']===bl)||{}).DIAMETER||spec;
+    Store.d.contracts.push({id:uid('ct'),'S Number':gv('al_sn')||'-','P number':pnum,Customer:cust,Product:productOf(shipDia),Spec:shipDia,'Service Port':titlePort(port),Quota:q,Tonnage:ton,'Payment Terms':gv('al_pt')||'','BL Allocation':bl,pricings:[]});
+    Store.save();audit('allocation added',pnum+' '+cust+' '+ton+'t');toast('Allocation added','green');closeModal();route();
+  };
+}
+function editAllocation(id){
+  if(!requirePerm('edit_contract','edit allocation'))return;
+  const c=Store.d.contracts.find(x=>x.id===id);if(!c){toast('Allocation not found','amber');return;}
+  const sameP=Store.d.shipments.filter(s=>(s['PURCHASE NUMBER']||'—')===(c['P number']||'—'));
+  const custs=custDatalist();
+  const qm=c.Quota?iso(new Date(parseDate(c.Quota).getFullYear(),parseDate(c.Quota).getMonth(),1)).slice(0,7):'';
+  openModal(`<div class="modal-h">${svg('grid',19)}<h3>Edit allocation</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="hint" style="margin-bottom:12px">${esc(c['S Number']||'—')} · purchase ${esc(c['P number']||'—')} · ${esc(specLabel(c.Spec))}</div>
+      <div class="form-grid">
+        <div class="fg"><label>Against BL</label><select class="inp" id="al_bl">${[...new Set(sameP.map(s=>s['BL NUMBER']))].map(b=>`<option ${blKey(b)===blKey(c['BL Allocation'])?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
+        <div class="fg"><label>Customer</label><input class="inp" id="al_cust" list="alCust2" value="${esc(c.Customer||'')}"><datalist id="alCust2">${custs.map(x=>`<option value="${esc(x)}">`).join('')}</datalist></div>
+        <div class="fg"><label>Delivery quota (month)</label><input class="inp" id="al_q" type="month" value="${esc(qm)}"></div>
+        <div class="fg"><label>Tonnage</label><input class="inp" id="al_ton" type="number" step="any" value="${esc(c.Tonnage??'')}"></div>
+      </div>
+    </div>
+    <div class="modal-f"><button class="btn btn-danger btn-sm" id="alDel" style="margin-right:auto">${svg('trash',14)}<span>Remove</span></button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="alSave">Save</button></div>`);
+  $('#alSave').onclick=()=>{
+    const ton=gvn('al_ton');if(!ton||ton<=0){toast('Enter a tonnage','amber');return;}
+    c['BL Allocation']=gv('al_bl');c.Customer=gv('al_cust');c.Quota=firstOfMonth(gv('al_q'));c.Tonnage=ton;
+    ['Delivery Date','Receivable Date','Current ETA','Release Date'].forEach(k=>delete c[k]);
+    Store.save();audit('allocation edited',c['S Number']||c['P number']);toast('Allocation updated','green');closeModal();route();
+  };
+  $('#alDel').onclick=()=>{if(confirm('Remove this allocation? The contract line will be deleted.')){Store.d.contracts=Store.d.contracts.filter(x=>x.id!==id);Store.save();audit('allocation removed',c['S Number']||c['P number']);toast('Allocation removed','green');closeModal();route();}};
+}
 
 /* ---------- H. MODALS ---------- */
 function openModal(html,opts={}){const m=$('#modal');m.className='modal'+(opts.wide?' wide':'');m.innerHTML=html;$('#modalBack').classList.add('show');const f=m.querySelector('input,select,textarea');if(f&&!opts.noFocus)setTimeout(()=>f.focus(),50);}
