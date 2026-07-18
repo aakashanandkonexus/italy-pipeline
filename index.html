@@ -272,6 +272,9 @@ kbd{font-family:var(--mono);font-size:11px;background:var(--surface-3);border:1p
 .badge-role.manager{background:var(--brand-wash);color:var(--brand-ink)}
 .badge-role.operator{background:var(--green-wash);color:var(--green)}
 .badge-role.viewer{background:var(--surface-3);color:var(--muted)}
+.badge-role.accounts{background:var(--amber-wash);color:var(--amber)}
+.badge-role.controller{background:var(--brand-wash);color:var(--brand-ink)}
+.badge-role.trade_finance{background:var(--green-wash);color:var(--green)}
 /* allocation overview grid */
 .pipeline-grid td,.pipeline-grid th{vertical-align:top;border-right:1px solid var(--border-2)}
 .pipeline-grid .sticky-col{position:sticky;left:0;background:var(--surface);z-index:2;box-shadow:1px 0 0 var(--border);min-width:96px}
@@ -3762,6 +3765,9 @@ const Store={
         ['Final Price','Priced/ Not Priced','Priced/Not Priced','Priced Lots','Averaging Lots','Unpriced Lots','Unsold','Priced Date'].forEach(k=>delete c[k]);});
       this.d.pricingCleared=true;this.save();
     }
+    // Finance datasets — additive namespace; never touches existing keys
+    if(!this.d.finance||typeof this.d.finance!=='object'){this.d.finance={};this.save();}
+    {let ch=false;['bankTx','payables','vatEntries','facilities','fxMarks'].forEach(k=>{if(!Array.isArray(this.d.finance[k])){this.d.finance[k]=[];ch=true;}});if(ch)this.save();}
     if(!this.users){
       const salt=rndSalt();
       this.users=[{id:uid('u'),username:'admin',name:'Administrator',role:'admin',salt,hash:await hashPw('krg-admin',salt),mustChange:true,created:iso(new Date()),active:true}];
@@ -3781,9 +3787,12 @@ function audit(action,detail){
 /* ---------- C. AUTH + RBAC + SESSION ---------- */
 const ROLES={
   admin:   {label:'Admin',   rank:4, can:['*']},
-  manager: {label:'Manager', rank:3, can:['view','edit_shipment','edit_contract','edit_credit','edit_ar','calc','import','export']},
+  manager: {label:'Manager', rank:3, can:['view','edit_shipment','edit_contract','edit_credit','edit_ar','calc','import','export','finance']},
   operator:{label:'Operator',rank:2, can:['view','edit_shipment','edit_contract','edit_ar','calc','export']},
-  viewer:  {label:'Viewer',  rank:1, can:['view','calc','export']}
+  viewer:  {label:'Viewer',  rank:1, can:['view','calc','export']},
+  accounts:      {label:'Accounts',            rank:2, can:['view','calc','export','finance','edit_ar']},
+  controller:    {label:'Financial Controller',rank:3, can:['view','calc','export','finance','edit_ar']},
+  trade_finance: {label:'Trade Finance',       rank:2, can:['view','calc','export','finance']}
 };
 const Auth={
   user:null,
@@ -3975,6 +3984,18 @@ const VIEWS=[
   {id:'projections',label:'Projections',        icon:'trend',     group:'Pipeline'},
   {id:'lifecycle', label:'Contract Lifecycle', icon:'lifecycle', group:'Search'},
   {id:'customer',  label:'Customer 360',        icon:'building',  group:'Search'},
+  {id:'accounts_ledger', label:'Cash & Bank Ledger', icon:'bank',     group:'Accounts',      perm:'finance'},
+  {id:'invoice_register',label:'Invoice Register',    icon:'receipt',  group:'Accounts',      perm:'finance'},
+  {id:'payables',        label:'Costs & Payables',    icon:'euro',     group:'Accounts',      perm:'finance'},
+  {id:'vat',             label:'VAT & Fiscal',        icon:'scale',    group:'Accounts',      perm:'finance'},
+  {id:'margin',          label:'Margin & P&L',        icon:'trend',    group:'Controller',    perm:'finance'},
+  {id:'aged_ar',         label:'Aged Receivables',    icon:'clock',    group:'Controller',    perm:'finance'},
+  {id:'close',           label:'Month-End Close',     icon:'check',    group:'Controller',    perm:'finance'},
+  {id:'controls',        label:'Exceptions & Controls',icon:'alert',   group:'Controller',    perm:'finance'},
+  {id:'financing',       label:'Financing & Facilities',icon:'building',group:'Trade Finance', perm:'finance'},
+  {id:'exposure',        label:'Credit Exposure',     icon:'credit',   group:'Trade Finance', perm:'finance'},
+  {id:'assignment',      label:'Assignment & Security',icon:'contract', group:'Trade Finance', perm:'finance'},
+  {id:'fx_exposure',     label:'FX & Pricing Exposure',icon:'tag',     group:'Trade Finance', perm:'finance'},
   {id:'reports',   label:'Reports',             icon:'report',    group:'System'},
   {id:'admin',     label:'Administration',      icon:'admin',     group:'System', adminOnly:true}
 ];
@@ -3983,6 +4004,7 @@ function renderNav(){
   let group=null;
   VIEWS.forEach(v=>{
     if(v.adminOnly&&Auth.user.role!=='admin')return;
+    if(v.perm&&!Auth.can(v.perm))return;
     if(v.group!==group){group=v.group;nav.append(el('div',{class:'nav-lbl'},group));}
     const a=el('a',{href:'#/'+v.id,html:svg(v.icon)+'<span>'+v.label+'</span>'});
     a.addEventListener('click',closeDrawer);
@@ -4024,6 +4046,7 @@ function route(){
   let id=(location.hash.replace(/^#\//,'')||'dashboard').split('?')[0];
   const v=VIEWS.find(x=>x.id===id)||VIEWS[0];
   if(v.adminOnly&&Auth.user.role!=='admin'){toast('Admin access only','amber');location.hash='#/dashboard';return;}
+  if(v.perm&&!Auth.can(v.perm)){toast('You don\u2019t have access to this section','amber');location.hash='#/dashboard';return;}
   $$('#nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#/'+v.id));
   $('#viewTitle').textContent=v.label; $('#crumb').textContent=v.group;
   $('#topActions').innerHTML=''; 
@@ -5192,9 +5215,9 @@ function admUsers(v){
   const ua=$('#usrAdd');if(ua)ua.onclick=()=>editUser(null);
   const rc=el('div',{class:'card'});
   rc.innerHTML=`<div class="card-h"><h3>Role permissions</h3></div><div class="card-b"><div class="tbl-wrap"><table class="tbl">
-    <thead><tr><th>Role</th><th>View</th><th>Shipments</th><th>Contracts</th><th>Credit</th><th>Receivables</th><th>Calculator</th><th>Import/Export</th><th>Users</th></tr></thead>
+    <thead><tr><th>Role</th><th>View</th><th>Shipments</th><th>Contracts</th><th>Credit</th><th>Receivables</th><th>Finance</th><th>Calculator</th><th>Import/Export</th><th>Users</th></tr></thead>
     <tbody>${Object.entries(ROLES).map(([k,r])=>{const c=p=>r.can.includes('*')||r.can.includes(p)?'<span style="color:var(--green)">✓</span>':'<span style="color:#C7CDD5">—</span>';
-      return `<tr><td><span class="badge-role ${k}">${r.label}</span></td><td>${c('view')}</td><td>${c('edit_shipment')}</td><td>${c('edit_contract')}</td><td>${c('edit_credit')}</td><td>${c('edit_ar')}</td><td>${c('calc')}</td><td>${c('export')}</td><td>${r.can.includes('*')?'<span style="color:var(--green)">✓</span>':'<span style="color:#C7CDD5">—</span>'}</td></tr>`;}).join('')}</tbody></table></div></div>`;
+      return `<tr><td><span class="badge-role ${k}">${r.label}</span></td><td>${c('view')}</td><td>${c('edit_shipment')}</td><td>${c('edit_contract')}</td><td>${c('edit_credit')}</td><td>${c('edit_ar')}</td><td>${c('finance')}</td><td>${c('calc')}</td><td>${c('export')}</td><td>${r.can.includes('*')?'<span style="color:var(--green)">✓</span>':'<span style="color:#C7CDD5">—</span>'}</td></tr>`;}).join('')}</tbody></table></div></div>`;
   v.append(rc);
 }
 /* --- Admin › Rules --- */
@@ -5271,6 +5294,39 @@ function admBackup(v){
   $('#bkFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);if(j.data){Store.d=j.data;Store.save();if(j.docs){Store.docs=j.docs;Store.saveDocs();}audit('backup restored');toast('Backup restored','green');route();}}catch(err){toast('Invalid backup file','amber');}};r.readAsText(f);};
   $('#xlAll').onclick=()=>exportSheet('all');
   $('#bkReset').onclick=()=>{if(confirm('Reset ALL data back to the original seed? This cannot be undone.')){localStorage.removeItem(LS.data);localStorage.removeItem(LS.docs);Store.d=null;Store.docs={};Store.seedIfEmpty().then(()=>{audit('data reset');toast('Data reset to seed','amber');route();});}};
+
+  // Finance data import (Excel)
+  const f=Store.d.finance||{};
+  const counts=[['Bank transactions',(f.bankTx||[]).length],['Payables',(f.payables||[]).length],['VAT entries',(f.vatEntries||[]).length],['Facilities',(f.facilities||[]).length],['FX marks',(f.fxMarks||[]).length]];
+  const fc=el('div',{class:'card',style:'margin-top:16px'});
+  fc.innerHTML=`<div class="card-h"><h3>Finance data import</h3><div class="hint">populate the Accounts, Controller and Trade Finance pages</div></div><div class="card-b">
+    <div class="callout grey" style="margin-bottom:14px">${svg('upload',17)}<div>Download the template, fill the sheets you need, and upload it here. Each uploaded sheet <b>replaces</b> its own finance dataset only — it never touches shipments, contracts, credit or receivables.</div></div>
+    <div class="metric-row" style="margin-bottom:14px">${counts.map(c=>`<div class="metric"><div class="m-l">${c[0]}</div><div class="m-v">${c[1]}</div></div>`).join('')}</div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" id="finTpl">${svg('download',14)}<span>Download Excel template</span></button>
+      <button class="btn btn-primary btn-sm" id="finImp">${svg('upload',14)}<span>Upload finance Excel</span></button>
+    </div><input type="file" id="finFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hide"></div>`;
+  v.append(fc);
+  $('#finTpl').onclick=()=>downloadFinanceTemplate();
+  $('#finImp').onclick=()=>$('#finFile').click();
+  $('#finFile').onchange=e=>{const file=e.target.files[0];if(file)importFinanceExcel(file);e.target.value='';};
+
+  // Core data refresh (Excel) — shipments / contracts / credit / receivables
+  if(Auth.can('import')){
+    const cnts=[['Shipments',(Store.d.shipments||[]).length],['Sales contracts',(Store.d.contracts||[]).length],['Credit lines',(Store.d.credit||[]).length],['Receivables',(Store.d.ar||[]).length]];
+    const dcx=el('div',{class:'card',style:'margin-top:16px'});
+    dcx.innerHTML=`<div class="card-h"><h3>Core data refresh</h3><div class="hint">update shipments, contracts, credit lines, receivables & pricing from Excel</div></div><div class="card-b">
+      <div class="callout amber" style="margin-bottom:14px">${svg('alert',17)}<div>Download the template — it contains your <b>current</b> records with a Row ID column. Edit values to update a row, or add rows with a blank Row ID to create new ones. Matching is by Row ID, so allocations, container details, pricing and invoice fields are preserved. Nothing is ever deleted.</div></div>
+      <div class="metric-row" style="margin-bottom:14px">${cnts.map(c=>`<div class="metric"><div class="m-l">${c[0]}</div><div class="m-v">${c[1]}</div></div>`).join('')}</div>
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="coreTpl">${svg('download',14)}<span>Download data template</span></button>
+        <button class="btn btn-primary btn-sm" id="coreImp">${svg('upload',14)}<span>Upload data refresh</span></button>
+      </div><input type="file" id="coreFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hide"></div>`;
+    v.append(dcx);
+    $('#coreTpl').onclick=()=>downloadCoreTemplate();
+    $('#coreImp').onclick=()=>$('#coreFile').click();
+    $('#coreFile').onchange=e=>{const file=e.target.files[0];if(file)importCoreExcel(file);e.target.value='';};
+  }
 }
 
 /* ---------- G8. REPORTS ---------- */
@@ -6055,6 +6111,518 @@ async function exportSheet(type){
   XLSX.writeFile(wb,'krg-'+type+'-'+iso(new Date())+'.xlsx');
   audit('exported '+type);toast('Exported to Excel','green');
 }
+
+/* ========== FINANCE VIEWS & IMPORT ========== */
+/* ============================================================
+   FINANCE MODULE — Accounts · Controller · Trade Finance
+   All views derive from existing data; missing inputs render as
+   empty cells and a prompt to upload via Backup & Recovery.
+   New data lives only in Store.d.finance.* (additive, isolated).
+   ============================================================ */
+const FIN=()=>Store.d.finance||{bankTx:[],payables:[],vatEntries:[],facilities:[],fxMarks:[]};
+const EM='<span class="t-sub">—</span>';
+function finEmpty(host,title,sub){host.innerHTML=emptyBox('upload',title,sub||'Populate it from Backup & Recovery → Finance data import.');}
+function bucketAge(due){const d=daysBetween(today(),parseDate(due));if(d==null)return'—';if(d>=0)return'Current';const a=-d;if(a<=30)return'1–30';if(a<=60)return'31–60';if(a<=90)return'61–90';return'90+';}
+function finKpiRow(items){return `<div class="card" style="margin-bottom:16px"><div class="card-b"><div class="metric-row">${items.map(i=>`<div class="metric"><div class="m-l">${esc(i[0])}</div><div class="m-v"${i[2]?` style="color:${i[2]}"`:''}>${i[1]}</div></div>`).join('')}</div></div></div>`;}
+function finCard(title,hint,bodyHtml,headExtra){return `<div class="card" style="margin-bottom:16px"><div class="card-h"><h3>${esc(title)}</h3>${hint?`<div class="hint">${esc(hint)}</div>`:''}${headExtra?`<div class="sp"></div>${headExtra}`:''}</div><div class="card-b flush"><div class="tbl-wrap">${bodyHtml}</div></div></div>`;}
+function finTable(cols,rows,foot){
+  if(!rows.length)return emptyBox('grid','Nothing to show yet','No matching records for this view.');
+  const th=cols.map(c=>`<th class="${c.num?'num':''}">${esc(c.h)}</th>`).join('');
+  const bd=rows.map(r=>`<tr>${cols.map(c=>`<td class="${c.num?'num':''} ${c.mono?'mono':''} ${c.strong?'t-strong':''}">${r[c.k]==null||r[c.k]===''?EM:r[c.k]}</td>`).join('')}</tr>`).join('');
+  const ft=foot?`<tr class="t-strong" style="border-top:2px solid var(--border-2)">${cols.map(c=>`<td class="${c.num?'num':''} ${c.mono?'mono':''}">${foot[c.k]!=null?foot[c.k]:''}</td>`).join('')}</tr>`:'';
+  return `<table class="tbl"><thead><tr>${th}</tr></thead><tbody>${bd}${ft}</tbody></table>`;
+}
+
+/* Invoice register: provisional (from contract lifecycle) + final (from AR) */
+function invoiceRegister(){
+  const out=[];
+  Store.d.contracts.map(deriveContract).forEach(c=>{ if(c['Prov Inv No']||c['Prov Inv Amount']!=null){
+    out.push({type:'Provisional',no:c['Prov Inv No']||'—',customer:c.Customer,contract:c['S Number'],q:c.Quota,amount:num(c['Prov Inv Amount']),issue:null,due:null,status:'Record only',bl:c['BL Allocation']||''});}});
+  Store.d.ar.map(deriveAR).forEach(a=>{ if(a['INV No.']||a._total!=null){
+    out.push({type:'Final',no:a['INV No.']||'—',customer:a.CUSTOMER,contract:a['Inv Contract']||'',q:a['DELIVERY Q'],amount:num(a['TOTAL AMOUNT'])??a._total,issue:a['Inv Date']||a['DELIVERY DATE'],due:a['DUE DATE'],status:(a.Status||'Open'),bl:''});}});
+  return out;
+}
+
+/* ---------- ACCOUNTS ---------- */
+RENDER.accounts_ledger=function(v){
+  const f=FIN();const accts=Store.d.bankAccounts||[];
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  // expected flows (forecast) — always available
+  const inflow=Store.d.ar.map(deriveAR).filter(a=>(a.Status||'Open')!=='Paid').reduce((s,a)=>s+(a._total||0),0);
+  const duty=Store.d.shipments.map(deriveShipment).filter(s=>String(s['CD PAID STATUS']||'').toLowerCase()!=='paid').reduce((s,x)=>s+(x._duty||0),0);
+  const stwg=Store.d.shipments.map(deriveShipment).filter(s=>String(s['STWG PAID STATUS']||'').toLowerCase()!=='paid').reduce((s,x)=>s+(x._stwg||0),0);
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Bank accounts',accts.length],
+    ['Ledger entries',f.bankTx.length],
+    ['Expected inflows (open AR)',fmtM(inflow),'var(--green)'],
+    ['Expected outflows (duty+STWG)',fmtM(duty+stwg),'var(--amber)']
+  ]));
+  // per-account balances from bankTx
+  accts.forEach(acc=>{
+    const tx=f.bankTx.filter(t=>String(t.account)===String(acc.accountNo)).sort((a,b)=>(parseDate(a.date)||0)-(parseDate(b.date)||0));
+    let bal=0;const rows=tx.map(t=>{const amt=num(t.amount)||0;const inn=/receipt|credit|in/i.test(t.type||'')?Math.abs(amt):(amt>0&&!/pay|debit|out/i.test(t.type||'')?amt:0);const outn=/pay|debit|out/i.test(t.type||'')?Math.abs(amt):(amt<0?-amt:0);bal+=inn-outn;
+      return {date:fmtDate(t.date),type:esc(t.type||''),ref:esc(t.ref||''),cp:esc(t.counterparty||''),inn:inn?fmtEur2(inn):'',outn:outn?fmtEur2(outn):'',bal:fmtEur2(bal),cat:esc(t.category||'')};});
+    const cols=[{h:'Date',k:'date',mono:1},{h:'Type',k:'type'},{h:'Reference',k:'ref',mono:1},{h:'Counterparty',k:'cp'},{h:'In',k:'inn',num:1},{h:'Out',k:'outn',num:1},{h:'Balance',k:'bal',num:1,strong:1},{h:'Category',k:'cat'}];
+    v.insertAdjacentHTML('beforeend',finCard(acc.bankName+' · '+acc.accountNo,(acc.currency||'EUR')+' · closing balance '+fmtEur2(bal),
+      rows.length?finTable(cols,rows):emptyBox('bank','No ledger entries for this account','Upload bank transactions via Backup & Recovery → Finance data import.')));
+  });
+  if(!accts.length)v.insertAdjacentHTML('beforeend',finCard('Cash & bank','','' ,'')+'');
+  if(!accts.length)finEmpty(v.lastElementChild.querySelector('.tbl-wrap'),'No bank accounts yet','Add one in Administration → Rules → Bank accounts, then upload transactions.');
+};
+
+RENDER.invoice_register=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const reg=invoiceRegister();
+  const prov=reg.filter(r=>r.type==='Provisional'),fin=reg.filter(r=>r.type==='Final');
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Invoices on record',reg.length],
+    ['Final',fin.length],
+    ['Provisional (record only)',prov.length],
+    ['Final invoiced value',fmtM(fin.reduce((s,r)=>s+(r.amount||0),0)),'var(--green)']
+  ]));
+  const cols=[{h:'Type',k:'type'},{h:'Invoice No',k:'no',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Contract',k:'contract',mono:1},{h:'Delivery Q',k:'q',mono:1},{h:'Amount',k:'amount',num:1},{h:'Issued',k:'issue',mono:1},{h:'Due',k:'due',mono:1},{h:'Status',k:'status'}];
+  const rows=reg.sort((a,b)=>(parseDate(b.issue||b.q)||0)-(parseDate(a.issue||a.q)||0)).map(r=>({
+    type:r.type==='Final'?'<span class="chip green">Final</span>':'<span class="chip blue">Provisional</span>',
+    no:esc(r.no),cust:esc(custShort(r.customer||'')),contract:esc(r.contract||''),q:fmtMY(r.q),amount:r.amount!=null?fmtEur2(r.amount):'',issue:fmtDate(r.issue),due:fmtDate(r.due),
+    status:r.status==='Paid'?'<span class="chip green">Paid</span>':r.status==='Record only'?'<span class="chip grey">Record only</span>':'<span class="chip amber">'+esc(r.status)+'</span>'}));
+  v.insertAdjacentHTML('beforeend',finCard('All invoices','provisional invoices are record-only and never posted to the ledger or credit line',finTable(cols,rows)));
+};
+
+RENDER.payables=function(v){
+  const f=FIN();
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  // derived from shipments: customs duty + Steinweg per BL
+  const der=[];
+  Store.d.shipments.map(deriveShipment).forEach(s=>{
+    if(s._duty)der.push({due:s['CD DUE DATE'],cat:'Customs duty',ref:s['BL NUMBER'],supplier:'Customs',amount:s._duty,status:String(s['CD PAID STATUS']||'').toLowerCase()==='paid'?'Paid':'Open',ccy:'EUR'});
+    if(s._stwg)der.push({due:s['STWG DUE DATE'],cat:'Steinweg / logistics',ref:s['BL NUMBER'],supplier:'C. Steinweg',amount:s._stwg,status:String(s['STWG PAID STATUS']||'').toLowerCase()==='paid'?'Paid':'Open',ccy:'EUR'});
+  });
+  const manual=f.payables.map(p=>({due:p.dueDate,cat:p.category||'Other',ref:p.ref||'',supplier:p.supplier||'',amount:num(p.amount),status:p.status||'Open',ccy:p.currency||'EUR'}));
+  const all=[...der,...manual].sort((a,b)=>(parseDate(a.due)||9e15)-(parseDate(b.due)||9e15));
+  const open=all.filter(p=>String(p.status).toLowerCase()!=='paid').reduce((s,p)=>s+(p.amount||0),0);
+  const byCat={};all.filter(p=>String(p.status).toLowerCase()!=='paid').forEach(p=>byCat[p.cat]=(byCat[p.cat]||0)+(p.amount||0));
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Payable lines',all.length],
+    ['Open payables',fmtM(open),'var(--amber)'],
+    ['Customs duty (open)',fmtM(byCat['Customs duty']||0)],
+    ['Logistics (open)',fmtM(byCat['Steinweg / logistics']||0)]
+  ]));
+  const cols=[{h:'Due',k:'due',mono:1},{h:'Category',k:'cat'},{h:'Reference (BL)',k:'ref',mono:1},{h:'Supplier',k:'supplier'},{h:'Amount',k:'amount',num:1,strong:1},{h:'Status',k:'status'}];
+  const rows=all.map(p=>({due:fmtDate(p.due),cat:esc(p.cat),ref:esc(p.ref||''),supplier:esc(p.supplier||''),amount:p.amount!=null?fmtEur2(p.amount):'',
+    status:String(p.status).toLowerCase()==='paid'?'<span class="chip green">Paid</span>':'<span class="chip amber">Open</span>'}));
+  v.insertAdjacentHTML('beforeend',finCard('Costs & payables','customs duty and Steinweg are derived per BL · additional supplier costs come from the uploaded payables sheet',finTable(cols,rows,{due:'Total open',amount:fmtEur2(open)})));
+};
+
+RENDER.vat=function(v){
+  const f=FIN();
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const iv=Store.d.invoiceConfig||{};
+  // derive one reverse-charge fiscal entry per final invoice, grouped by delivery month
+  const der=Store.d.ar.map(deriveAR).filter(a=>a['INV No.']).map(a=>({period:a['DELIVERY Q']||a['Inv Date'],invoice:a['INV No.'],customer:a.CUSTOMER,taxable:num(a['TOTAL AMOUNT'])??a._total,treatment:'Reverse charge (Art.17)',vat:0}));
+  const manual=f.vatEntries.map(e=>({period:e.period,invoice:e.invoice,customer:e.customer,taxable:num(e.taxableAmount),treatment:e.vatTreatment||'—',vat:num(e.vatAmount)||0}));
+  const all=[...manual,...der];
+  // group by period label
+  const groups={};all.forEach(e=>{const k=fmtMY(e.period)||'Unassigned';(groups[k]=groups[k]||[]).push(e);});
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Fiscal entries',all.length],
+    ['Periods',Object.keys(groups).length],
+    ['Taxable base',fmtM(all.reduce((s,e)=>s+(e.taxable||0),0))],
+    ['VAT (reverse charge)',fmtEur2(all.reduce((s,e)=>s+(e.vat||0),0))]
+  ]));
+  v.insertAdjacentHTML('beforeend',`<div class="callout grey" style="margin-bottom:16px">${svg('scale',16)}<div>Italian supplies are handled under reverse charge (Art.17, DPR 633/1972) via the Steinweg fiscal representative, so output VAT is nil. Adjust or add entries by uploading the VAT sheet.</div></div>`);
+  const cols=[{h:'Invoice',k:'invoice',mono:1,strong:1},{h:'Customer',k:'customer'},{h:'Taxable base',k:'taxable',num:1},{h:'Treatment',k:'treatment'},{h:'VAT',k:'vat',num:1}];
+  Object.keys(groups).sort((a,b)=>(parseDate(groups[b][0].period)||0)-(parseDate(groups[a][0].period)||0)).forEach(k=>{
+    const rows=groups[k].map(e=>({invoice:esc(e.invoice||'—'),customer:esc(custShort(e.customer||'')),taxable:e.taxable!=null?fmtEur2(e.taxable):'',treatment:esc(e.treatment),vat:fmtEur2(e.vat||0)}));
+    const base=groups[k].reduce((s,e)=>s+(e.taxable||0),0);
+    v.insertAdjacentHTML('beforeend',finCard(k,groups[k].length+' entr'+(groups[k].length>1?'ies':'y'),finTable(cols,rows,{invoice:'Total',taxable:fmtEur2(base),vat:fmtEur2(groups[k].reduce((s,e)=>s+(e.vat||0),0))})));
+  });
+  if(!all.length){const c=el('div');v.append(c);finEmpty(c,'No fiscal entries yet','Raise invoices, or upload the VAT sheet via Backup & Recovery.');}
+};
+
+/* ---------- CONTROLLER ---------- */
+RENDER.margin=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const f=FIN();
+  const extraByBL={};f.payables.forEach(p=>{const k=blKey(p.ref);if(k)extraByBL[k]=(extraByBL[k]||0)+(num(p.amount)||0);});
+  const allocByBL=allocByBLMap();
+  const rows=[];let tRev=0,tDuty=0,tStwg=0,tOther=0,tMar=0,tNet=0;
+  Store.d.shipments.map(deriveShipment).forEach(s=>{
+    const net=num(s['NET WEIGHT']);const cs=allocByBL[blKey(s['BL NUMBER'])]||[];
+    const cust=cs[0]?custShort(cs[0].Customer):'';
+    const rev=s._invoice;const duty=s._duty||0,stwg=s._stwg||0,other=extraByBL[blKey(s['BL NUMBER'])]||0;
+    const margin=(rev!=null)?rev-duty-stwg-other:null;
+    if(rev!=null){tRev+=rev;tMar+=margin;}
+    tDuty+=duty;tStwg+=stwg;tOther+=other;tNet+=(net||0);
+    rows.push({bl:s['BL NUMBER'],cust,prod:s._product,net,rev,duty,stwg,other,margin,perT:(margin!=null&&net)?margin/net:null,pct:(margin!=null&&rev)?margin/rev*100:null});
+  });
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Revenue (invoiced)',fmtM(tRev),'var(--green)'],
+    ['Landed costs',fmtM(tDuty+tStwg+tOther),'var(--amber)'],
+    ['Gross margin',fmtM(tMar)],
+    ['Blended €/t',tNet?fmtN(tMar/tNet,2):'—']
+  ]));
+  const cols=[{h:'BL',k:'bl',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Product',k:'prod'},{h:'Net t',k:'net',num:1},{h:'Revenue',k:'rev',num:1},{h:'Duty',k:'duty',num:1},{h:'STWG',k:'stwg',num:1},{h:'Other',k:'other',num:1},{h:'Margin',k:'margin',num:1,strong:1},{h:'€/t',k:'perT',num:1},{h:'Margin %',k:'pct',num:1}];
+  const disp=rows.sort((a,b)=>(b.margin||-9e15)-(a.margin||-9e15)).map(r=>({bl:esc(r.bl),cust:esc(r.cust||''),prod:esc(r.prod),net:r.net!=null?fmtN(r.net,3):'',rev:r.rev!=null?fmtM(r.rev):'',duty:fmtM(r.duty),stwg:fmtM(r.stwg),other:r.other?fmtM(r.other):'',margin:r.margin!=null?fmtM(r.margin):'',perT:r.perT!=null?fmtN(r.perT,2):'',pct:r.pct!=null?fmtN(r.pct,1)+'%':''}));
+  v.insertAdjacentHTML('beforeend',finCard('Margin by delivery (BL)','revenue = invoice value · costs = duty + Steinweg + any uploaded supplier costs matched by BL',finTable(cols,disp,{bl:'Total',rev:fmtM(tRev),duty:fmtM(tDuty),stwg:fmtM(tStwg),other:fmtM(tOther),margin:fmtM(tMar)})));
+};
+
+RENDER.aged_ar=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('ar'));
+  const open=Store.d.ar.map(deriveAR).filter(a=>(a.Status||'Open')!=='Paid');
+  const B=['Current','1–30','31–60','61–90','90+'];
+  const byCust={};open.forEach(a=>{const k=custShort(a.CUSTOMER);const e=byCust[k]=byCust[k]||{Current:0,'1–30':0,'31–60':0,'61–90':0,'90+':0,total:0};const b=bucketAge(a['DUE DATE']);if(e[b]!=null)e[b]+=a._total||0;e.total+=a._total||0;});
+  const tot={Current:0,'1–30':0,'31–60':0,'61–90':0,'90+':0,total:0};
+  Object.values(byCust).forEach(e=>{B.forEach(b=>tot[b]+=e[b]);tot.total+=e.total;});
+  // DSO estimate from settled performance
+  const paid=Store.d.ar.map(deriveAR).filter(a=>(a.Status||'Open')==='Paid');
+  const perfs=paid.map(a=>{const d=daysBetween(a['DELIVERY DATE'],a['PAID DATE']);return d;}).filter(x=>x!=null);
+  const dso=perfs.length?Math.round(perfs.reduce((s,d)=>s+d,0)/perfs.length):null;
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Open receivables',fmtM(tot.total),'var(--amber)'],
+    ['Overdue (>0d)',fmtM(tot['1–30']+tot['31–60']+tot['61–90']+tot['90+']),'var(--red,#c0392b)'],
+    ['90+ days',fmtM(tot['90+'])],
+    ['Avg DSO (settled)',dso!=null?dso+' days':'—']
+  ]));
+  const cols=[{h:'Customer',k:'cust',strong:1},{h:'Current',k:'Current',num:1},{h:'1–30',k:'1–30',num:1},{h:'31–60',k:'31–60',num:1},{h:'61–90',k:'61–90',num:1},{h:'90+',k:'90+',num:1},{h:'Total',k:'total',num:1,strong:1}];
+  const rows=Object.entries(byCust).sort((a,b)=>b[1].total-a[1].total).map(([k,e])=>({cust:esc(k),Current:e.Current?fmtM(e.Current):'',['1–30']:e['1–30']?fmtM(e['1–30']):'',['31–60']:e['31–60']?fmtM(e['31–60']):'',['61–90']:e['61–90']?fmtM(e['61–90']):'',['90+']:e['90+']?fmtM(e['90+']):'',total:fmtM(e.total)}));
+  const foot={cust:'Total',Current:fmtM(tot.Current),['1–30']:fmtM(tot['1–30']),['31–60']:fmtM(tot['31–60']),['61–90']:fmtM(tot['61–90']),['90+']:fmtM(tot['90+']),total:fmtM(tot.total)};
+  v.insertAdjacentHTML('beforeend',finCard('Aged receivables by customer','buckets computed from each invoice due date',finTable(cols,rows,rows.length?foot:null)));
+};
+
+RENDER.close=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const contracts=Store.d.contracts.map(deriveContract);
+  const ar=Store.d.ar.map(deriveAR);
+  // delivered not invoiced: contract line delivered (has delivery date past today) but no matched AR
+  const arByCustQ=new Set(ar.map(a=>custKey(a.CUSTOMER)+'|'+fmtMY(a['DELIVERY Q'])));
+  const dni=contracts.filter(c=>{const d=parseDate(c._delivery);return d&&d<=today()&&!arByCustQ.has(custKey(c.Customer)+'|'+fmtMY(c.Quota));});
+  const dniVal=dni.reduce((s,c)=>s+((num(c.Tonnage)||0)*(c._finalPrice||0)),0);
+  const ini=ar.filter(a=>(a.Status||'Open')!=='Paid');
+  const iniVal=ini.reduce((s,a)=>s+(a._total||0),0);
+  const avgTon=contracts.filter(c=>c._isAvg).reduce((s,c)=>s+(c._openTon||0),0);
+  const provRows=contracts.filter(c=>c['Prov Inv Amount']!=null);
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Delivered · not invoiced',dni.length+' · '+fmtM(dniVal),'var(--amber)'],
+    ['Invoiced · not received',ini.length+' · '+fmtM(iniVal)],
+    ['Averaging exposure (open t)',fmtN(avgTon,1)],
+    ['Provisional invoices open',provRows.length]
+  ]));
+  const c1=[{h:'Contract',k:'sn',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Quota',k:'q',mono:1},{h:'Net t',k:'net',num:1},{h:'Est. value',k:'val',num:1},{h:'Delivery',k:'d',mono:1}];
+  const r1=dni.sort((a,b)=>(parseDate(a._delivery)||0)-(parseDate(b._delivery)||0)).map(c=>({sn:esc(c['S Number']),cust:esc(custShort(c.Customer)),q:fmtMY(c.Quota),net:fmtN(c.Tonnage),val:c._finalPrice?fmtM(num(c.Tonnage)*c._finalPrice):'',d:fmtDate(c._delivery)}));
+  v.insertAdjacentHTML('beforeend',finCard('Delivered but not invoiced','lines past their delivery date with no matching receivable in the same quota',finTable(c1,r1)));
+  const c2=[{h:'Invoice',k:'no',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Delivery Q',k:'q',mono:1},{h:'Amount',k:'amt',num:1},{h:'Due',k:'due',mono:1}];
+  const r2=ini.sort((a,b)=>(parseDate(a['DUE DATE'])||0)-(parseDate(b['DUE DATE'])||0)).map(a=>({no:esc(a['INV No.']||'—'),cust:esc(custShort(a.CUSTOMER)),q:fmtMY(a['DELIVERY Q']),amt:fmtM(a._total),due:fmtDate(a['DUE DATE'])}));
+  v.insertAdjacentHTML('beforeend',finCard('Invoiced but not received','open receivables awaiting settlement',finTable(c2,r2)));
+};
+
+RENDER.controls=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const ex=[];
+  // 1. BL net vs sum of container nets
+  Store.d.shipments.forEach(s=>{const cs=Array.isArray(s.containers)?s.containers:[];if(cs.length){const sum=cs.reduce((a,c)=>a+(num(c.net)||0),0);const decl=num(s['NET WEIGHT']);if(decl!=null&&Math.abs(sum-decl)>0.5)ex.push(['Weight mismatch','warn',s['BL NUMBER'],'Container net '+fmtN(sum,3)+'t vs BL net '+fmtN(decl,3)+'t']);}});
+  // 2. BL allocated but no PBs recorded (contract level)
+  Store.d.contracts.map(deriveContract).forEach(c=>{const bl=c['BL Allocation'];if(bl&&!/^tbc$/i.test(bl)){const sh=shipmentByBL(bl);const pbs=sh&&Array.isArray(sh.containers)?sh.containers.filter(x=>String(x.pb||'').trim()).length:0;if(!pbs)ex.push(['No PB numbers','info',c['S Number'],'BL '+bl+' allocated but no container PBs recorded']);}});
+  // 3. Provisional vs final delta
+  const arByCustQ={};Store.d.ar.map(deriveAR).forEach(a=>{arByCustQ[custKey(a.CUSTOMER)+'|'+fmtMY(a['DELIVERY Q'])]=a;});
+  Store.d.contracts.map(deriveContract).forEach(c=>{if(c['Prov Inv Amount']!=null){const a=arByCustQ[custKey(c.Customer)+'|'+fmtMY(c.Quota)];if(a&&a._total!=null){const d=Math.abs(a._total-num(c['Prov Inv Amount']));if(d>Math.max(1,0.02*a._total))ex.push(['Provisional vs final gap','warn',c['S Number'],'Provisional '+fmtM(num(c['Prov Inv Amount']))+' vs final '+fmtM(a._total)]);}}});
+  // 4. Customer open AR over credit line
+  const dir=customerDirectory();Object.values(dir).forEach(e=>{const line=creditLine(e),arv=openAR(e);if(line>0&&arv>line)ex.push(['Over credit line','warn',e.short,'Open AR '+fmtM(arv)+' exceeds line '+fmtM(line)]);});
+  // 5. Unpriced tonnage past delivery date
+  Store.d.contracts.map(deriveContract).forEach(c=>{const d=parseDate(c._delivery);if(d&&d<today()&&c._openTon>0.01&&!c._isAvg)ex.push(['Unpriced past delivery','warn',c['S Number'],fmtN(c._openTon,1)+'t still open, delivered '+fmtDate(c._delivery)]);});
+  const sev=t=>t==='warn'?'<span class="chip amber">Review</span>':'<span class="chip grey">Info</span>';
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Exceptions flagged',ex.length,ex.length?'var(--amber)':'var(--green)'],
+    ['Needs review',ex.filter(e=>e[1]==='warn').length],
+    ['Informational',ex.filter(e=>e[1]==='info').length],
+    ['Checks run',5]
+  ]));
+  const cols=[{h:'Check',k:'chk',strong:1},{h:'Severity',k:'sev'},{h:'Reference',k:'ref',mono:1},{h:'Detail',k:'det'}];
+  const rows=ex.map(e=>({chk:esc(e[0]),sev:sev(e[1]),ref:esc(e[2]||''),det:esc(e[3]||'')}));
+  v.insertAdjacentHTML('beforeend',finCard('Exceptions & controls',ex.length?'items worth a second look before close':'all clear',rows.length?finTable(cols,rows):emptyBox('check','No exceptions','Every control passed on the current data.')));
+};
+
+/* ---------- TRADE FINANCE ---------- */
+RENDER.financing=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const f=FIN();
+  const ships=Store.d.shipments.map(deriveShipment).filter(s=>s['FINANCIER']);
+  const byFin={};ships.forEach(s=>{const k=s['FINANCIER'];const e=byFin[k]=byFin[k]||{drawn:0,repaid:0,bls:0};const paid=String(s['INVOICE PAID STATUS']||'').toLowerCase()==='paid';e.bls++;if(paid)e.repaid+=s._invoice||0;else e.drawn+=s._invoice||0;});
+  const facByBank={};(f.facilities||[]).forEach(x=>{facByBank[String(x.bank).toUpperCase()]=x;});
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Financiers',Object.keys(byFin).length],
+    ['Financed BLs',ships.length],
+    ['Outstanding (open invoices)',fmtM(Object.values(byFin).reduce((s,e)=>s+e.drawn,0)),'var(--amber)'],
+    ['Facilities on record',(f.facilities||[]).length]
+  ]));
+  const cols=[{h:'Financier',k:'fin',strong:1},{h:'Facility type',k:'type'},{h:'Limit',k:'limit',num:1},{h:'Drawn (open)',k:'drawn',num:1},{h:'Available',k:'avail',num:1},{h:'BLs',k:'bls',num:1}];
+  const rows=Object.entries(byFin).sort((a,b)=>b[1].drawn-a[1].drawn).map(([k,e])=>{const fac=facByBank[String(k).toUpperCase()];const lim=fac?num(fac.limit):null;return {fin:esc(k),type:fac?esc(fac.type||'—'):EM,limit:lim!=null?fmtM(lim):'',drawn:fmtM(e.drawn),avail:lim!=null?fmtM(lim-e.drawn):'',bls:e.bls};});
+  v.insertAdjacentHTML('beforeend',finCard('Financing by facility','drawdowns derived from financed BLs · limits come from the uploaded facilities sheet',finTable(cols,rows)));
+  // financed BL detail
+  const dc=[{h:'BL',k:'bl',mono:1,strong:1},{h:'Financier',k:'fin'},{h:'ETA',k:'eta',mono:1},{h:'Invoice value',k:'inv',num:1},{h:'Status',k:'st'}];
+  const dr=ships.sort((a,b)=>(parseDate(b.ETA)||0)-(parseDate(a.ETA)||0)).map(s=>({bl:esc(s['BL NUMBER']),fin:esc(s['FINANCIER']),eta:fmtDate(s.ETA),inv:fmtM(s._invoice),st:String(s['INVOICE PAID STATUS']||'').toLowerCase()==='paid'?'<span class="chip green">Repaid</span>':'<span class="chip amber">Outstanding</span>'}));
+  v.insertAdjacentHTML('beforeend',finCard('Financed shipments','',finTable(dc,dr)));
+};
+
+RENDER.exposure=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('credit'));
+  const dir=customerDirectory();
+  const rows=Object.values(dir).filter(e=>e.credit).map(e=>{const line=creditLine(e),arv=openAR(e);return {short:e.short,line,ar:arv,avail:line-arv,util:line?Math.round(arv/line*100):0,port:e.credit['Best Served From']||''};}).filter(r=>r.line>0||r.ar>0);
+  const totLine=rows.reduce((s,r)=>s+r.line,0),totAR=rows.reduce((s,r)=>s+r.ar,0);
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Total credit lines',fmtM(totLine)],
+    ['Total exposure (open AR)',fmtM(totAR),'var(--amber)'],
+    ['Headroom',fmtM(totLine-totAR),'var(--green)'],
+    ['Portfolio utilisation',totLine?Math.round(totAR/totLine*100)+'%':'—']
+  ]));
+  const cols=[{h:'Customer',k:'cust',strong:1},{h:'Serving port',k:'port'},{h:'Credit line',k:'line',num:1},{h:'Exposure',k:'ar',num:1},{h:'Headroom',k:'avail',num:1},{h:'Utilisation',k:'util',num:1}];
+  const disp=rows.sort((a,b)=>b.ar-a.ar).map(r=>({cust:esc(r.short),port:esc(r.port||''),line:fmtM(r.line),ar:fmtM(r.ar),avail:fmtM(r.avail),
+    util:`<span class="chip ${r.util>=100?'amber':r.util>=80?'blue':'grey'}">${r.util}%</span>`}));
+  v.insertAdjacentHTML('beforeend',finCard('Customer credit exposure','open receivables against approved credit line',finTable(cols,disp,{cust:'Total',line:fmtM(totLine),ar:fmtM(totAR),avail:fmtM(totLine-totAR)})));
+};
+
+RENDER.assignment=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
+  const accts=Store.d.bankAccounts||[];
+  const bankOf=no=>{const b=accts.find(x=>String(x.accountNo)===String(no));return b?b.bankName+' · '+b.accountNo:no||'';};
+  const ar=Store.d.ar.map(deriveAR).filter(a=>a['Inv Bank']||a['INV No.']);
+  const assigned=ar.filter(a=>a['Inv Bank']);
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Invoices raised',ar.length],
+    ['Assigned to a bank',assigned.length],
+    ['Assigned value',fmtM(assigned.reduce((s,a)=>s+(a._total||0),0)),'var(--green)'],
+    ['Unassigned',ar.length-assigned.length]
+  ]));
+  const cols=[{h:'Invoice',k:'no',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Amount',k:'amt',num:1},{h:'Assigned to',k:'bank'},{h:'Due',k:'due',mono:1},{h:'Status',k:'st'}];
+  const rows=ar.sort((a,b)=>(parseDate(b['DUE DATE'])||0)-(parseDate(a['DUE DATE'])||0)).map(a=>({no:esc(a['INV No.']||'—'),cust:esc(custShort(a.CUSTOMER)),amt:fmtM(a._total),
+    bank:a['Inv Bank']?esc(bankOf(a['Inv Bank'])):EM,due:fmtDate(a['DUE DATE']),
+    st:(a.Status||'Open')==='Paid'?'<span class="chip green">Settled</span>':'<span class="chip amber">Open</span>'}));
+  v.insertAdjacentHTML('beforeend',finCard('Assigned receivables','the bank chosen when the invoice PDF was generated is treated as the assignee',finTable(cols,rows)));
+};
+
+RENDER.fx_exposure=function(v){
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('contracts'));
+  const f=FIN();
+  const mark=(f.fxMarks||[]).slice().sort((a,b)=>(parseDate(b.date)||0)-(parseDate(a.date)||0))[0]||null;
+  const contracts=Store.d.contracts.map(deriveContract).filter(c=>c._openTon>0.01);
+  const openTon=contracts.reduce((s,c)=>s+c._openTon,0);
+  const avgTon=contracts.filter(c=>c._isAvg).reduce((s,c)=>s+c._openTon,0);
+  v.insertAdjacentHTML('beforeend',finKpiRow([
+    ['Open tonnage (unfixed)',fmtN(openTon,1)],
+    ['On averaging',fmtN(avgTon,1)],
+    ['Latest LME mark',mark&&mark.lmeSpot!=null?fmtN(mark.lmeSpot,2):'—'],
+    ['Latest FX mark',mark&&mark.fxRate!=null?fmtN(mark.fxRate,4):'—']
+  ]));
+  if(!mark)v.insertAdjacentHTML('beforeend',`<div class="callout grey" style="margin-bottom:16px">${svg('tag',16)}<div>Upload an LME/FX mark (Finance data import) to value the open position. Until then the table shows the open tonnage and any per-contract LME/FX already captured.</div></div>`);
+  const cols=[{h:'Contract',k:'sn',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'QP',k:'qp'},{h:'Open t',k:'open',num:1},{h:'LME',k:'lme',num:1},{h:'FX',k:'fx',num:1},{h:'Premium',k:'prem',num:1},{h:'Exposure',k:'exp',num:1}];
+  const rows=contracts.sort((a,b)=>b._openTon-a._openTon).map(c=>{
+    const lme=num(c.LME)!=null?num(c.LME):(mark?num(mark.lmeSpot):null);
+    const fx=num(c.FX)!=null?num(c.FX):(mark?num(mark.fxRate):null);
+    const prem=num(c.Premium);
+    const price=(lme!=null)?((lme+(prem||0))/(fx||1)):null;
+    const expo=(price!=null)?price*c._openTon:null;
+    return {sn:esc(c['S Number']),cust:esc(custShort(c.Customer)),qp:esc(c.QP||(c._isAvg?'Averaging':'—')),open:fmtN(c._openTon,1),lme:lme!=null?fmtN(lme,2):'',fx:fx!=null?fmtN(fx,4):'',prem:prem!=null?fmtN(prem,0):'',exp:expo!=null?fmtM(expo):''};});
+  v.insertAdjacentHTML('beforeend',finCard('Open pricing / FX exposure','exposure = (LME + premium) ÷ FX × open tonnage, using each contract\u2019s marks or the latest uploaded mark',finTable(cols,rows)));
+};
+
+/* ---------- FINANCE DATA IMPORT (Excel) ---------- */
+const FIN_SCHEMA=[
+ {sheet:'Bank Transactions',key:'bankTx',cols:[['Date','date'],['Account No','account'],['Type (Receipt/Payment)','type'],['Reference','ref'],['Counterparty','counterparty'],['Currency','currency'],['Amount','amount'],['Category','category'],['Note','note']]},
+ {sheet:'Payables',key:'payables',cols:[['Due Date','dueDate'],['Category','category'],['Supplier','supplier'],['Reference (BL)','ref'],['Currency','currency'],['Amount','amount'],['Status (Open/Paid)','status'],['Paid Date','paidDate'],['Note','note']]},
+ {sheet:'VAT Entries',key:'vatEntries',cols:[['Period (YYYY-MM-01)','period'],['Invoice No','invoice'],['Customer','customer'],['Taxable Amount','taxableAmount'],['VAT Treatment','vatTreatment'],['VAT Amount','vatAmount'],['Note','note']]},
+ {sheet:'Facilities',key:'facilities',cols:[['Bank / Financier','bank'],['Facility Type','type'],['Currency','currency'],['Limit','limit'],['Note','note']]},
+ {sheet:'FX Marks',key:'fxMarks',cols:[['Date','date'],['LME Spot','lmeSpot'],['FX Rate','fxRate'],['Note','note']]}
+];
+const FIN_NUM=new Set(['amount','limit','lmeSpot','fxRate','taxableAmount','vatAmount']);
+const FIN_DATE=new Set(['date','dueDate','paidDate']);
+async function downloadFinanceTemplate(){
+  try{await ensureXLSX();}catch(e){toast('Could not load the export engine (needs an internet connection)','amber');return;}
+  const wb=XLSX.utils.book_new();
+  // helpful reference sheet
+  const refAoa=[['KRG Finance data template'],[],['Fill only the sheets you need. Each sheet maps to one finance dataset.'],
+    ['On import, a sheet you include REPLACES that dataset; a sheet you leave out is untouched.'],
+    ['This never affects shipments, contracts, credit or receivables data.'],[],
+    ['Dates: use YYYY-MM-DD. Amounts: numbers only (no currency symbols).']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(refAoa),'READ ME');
+  FIN_SCHEMA.forEach(s=>{
+    const ex=Store.d.finance[s.key]||[];
+    const header=s.cols.map(c=>c[0]);
+    const body=ex.map(r=>s.cols.map(c=>{let val=r[c[1]];return val==null?'':val;}));
+    const ws=XLSX.utils.aoa_to_sheet([header,...body]);
+    ws['!cols']=s.cols.map(c=>({wch:Math.max(c[0].length+2,14)}));
+    XLSX.utils.book_append_sheet(wb,ws,s.sheet);
+  });
+  XLSX.writeFile(wb,'KRG-finance-template-'+iso(new Date())+'.xlsx');
+  audit('finance template downloaded');toast('Template downloaded','green');
+}
+async function importFinanceExcel(file){
+  try{await ensureXLSX();}catch(e){toast('Could not load the import engine (needs an internet connection)','amber');return;}
+  const buf=await file.arrayBuffer();
+  let wb;try{wb=XLSX.read(buf,{type:'array',cellDates:true});}catch(e){toast('Could not read that file — is it a valid .xlsx?','amber');return;}
+  const staged={};const summary=[];
+  FIN_SCHEMA.forEach(s=>{
+    const ws=wb.Sheets[s.sheet];if(!ws)return;
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',blankrows:false});
+    if(!aoa.length)return;
+    const head=aoa[0].map(h=>String(h||'').trim().toLowerCase());
+    const idx={};s.cols.forEach(c=>{const i=head.indexOf(c[0].toLowerCase());if(i>=0)idx[c[1]]=i;});
+    const rows=[];
+    for(let r=1;r<aoa.length;r++){
+      const line=aoa[r];if(!line||!line.some(x=>String(x??'').trim()!==''))continue;
+      const obj={id:uid('fin')};
+      s.cols.forEach(c=>{const i=idx[c[1]];let val=i==null?null:line[i];
+        if(val===''||val==null){obj[c[1]]=null;return;}
+        if(FIN_DATE.has(c[1])){val=(val instanceof Date)?iso(new Date(val.getFullYear(),val.getMonth(),val.getDate())):String(val).trim();}
+        else if(FIN_NUM.has(c[1])){const n=num(String(val).replace(/[,\s]/g,''));val=n==null?null:n;}
+        else val=String(val).trim();
+        obj[c[1]]=val;});
+      rows.push(obj);
+    }
+    staged[s.key]=rows;summary.push([s.sheet,rows.length]);
+  });
+  if(!summary.length){toast('No recognised finance sheets found in that file','amber');return;}
+  // Validate references against live pipeline data
+  const blSet=new Set(Store.d.shipments.map(s=>blKey(s['BL NUMBER'])));
+  const acctSet=new Set((Store.d.bankAccounts||[]).map(b=>String(b.accountNo)));
+  const finSet=new Set(Store.d.shipments.map(s=>String(s['FINANCIER']||'').toUpperCase()).filter(Boolean));
+  const custResolvable=n=>{const dir=customerDirectory();if(dir[custKey(n)])return true;const t=String(n||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return Store.d.credit.some(r=>{const f=String(r['Full Company Name']||'').toUpperCase().replace(/[^A-Z0-9]/g,''),sh=String(r['Short Name']||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return f===t||sh===t;});};
+  const invSet=new Set(Store.d.ar.map(a=>String(a['INV No.']||'').trim()).filter(Boolean));
+  const warn=[];
+  (staged.bankTx||[]).forEach(r=>{if(r.account&&!acctSet.has(String(r.account)))warn.push(['Bank Transactions','account '+r.account+' is not a set-up bank account']);});
+  (staged.payables||[]).forEach(r=>{if(r.ref&&!blSet.has(blKey(r.ref)))warn.push(['Payables','reference '+r.ref+' does not match any BL']);});
+  (staged.vatEntries||[]).forEach(r=>{if(r.customer&&!custResolvable(r.customer))warn.push(['VAT Entries','customer "'+r.customer+'" not found in credit records']);if(r.invoice&&!invSet.has(String(r.invoice).trim()))warn.push(['VAT Entries','invoice '+r.invoice+' has no matching receivable']);});
+  (staged.facilities||[]).forEach(r=>{if(r.bank&&!finSet.has(String(r.bank).toUpperCase())&&!acctSet.has(String(r.bank)))warn.push(['Facilities','"'+r.bank+'" is not a financier used on any BL']);});
+  const totalRows=summary.reduce((a,s)=>a+s[1],0);
+  const checked=totalRows-warn.length;
+  const list=summary.map(([sh,n])=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border-2)"><span>${esc(sh)}</span><span class="mono t-strong">${n} row${n===1?'':'s'}</span></div>`).join('');
+  const warnHtml=warn.length?`<div class="callout amber" style="margin:12px 0"><div style="width:100%"><b>${warn.length} reference${warn.length>1?'s':''} not matched against pipeline data:</b><div style="max-height:150px;overflow:auto;margin-top:6px">${warn.slice(0,40).map(w=>`<div class="t-sub" style="padding:2px 0">${esc(w[0])} — ${esc(w[1])}</div>`).join('')}${warn.length>40?`<div class="t-sub">…and ${warn.length-40} more</div>`:''}</div><div class="t-sub" style="margin-top:6px">These rows still import, but won\u2019t join to a BL, customer or account until the reference matches.</div></div></div>`:`<div class="callout grey" style="margin:12px 0">${svg('check',16)}<div>All references check out against current shipments, customers and accounts.</div></div>`;
+  openModal(`<div class="modal-h">${svg('upload',19)}<h3>Confirm finance import</h3><div class="hint">${checked} of ${totalRows} rows validated against live pipeline data</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="callout grey" style="margin-bottom:4px">${svg('alert',16)}<div>Each sheet below <b>replaces</b> its finance dataset only. Sheets not in the file are left unchanged. Shipments, contracts, credit and receivables are never modified by this import.</div></div>
+      ${warnHtml}
+      ${list}
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="finImpGo">Import${warn.length?' anyway':''}</button></div>`);
+  $('#finImpGo').onclick=()=>{
+    Store.d.finance=Store.d.finance||{};
+    Object.keys(staged).forEach(k=>{Store.d.finance[k]=staged[k];});
+    Store.save();audit('finance data imported',summary.map(s=>s[0]+':'+s[1]).join(', '));
+    toast('Finance data imported','green');closeModal();route();
+  };
+}
+
+
+
+/* ============================================================
+   CORE DATA IMPORT — refresh shipments / contracts / credit /
+   receivables from Excel. Matches by the immutable Row ID so
+   existing rows are UPDATED in place (app-managed fields such as
+   PB allocations, container details, pricing tranches, provisional
+   & final invoice fields are preserved) and blank-ID rows are ADDED.
+   Nothing is ever deleted.
+   ============================================================ */
+const CORE_SCHEMA=[
+ {sheet:'Shipments', key:'shipments', prefix:'sh', label:'Shipments & BLs',
+   cols:[['Port of Delivery','PORT OF DELIVERY'],['Purchase Number','PURCHASE NUMBER'],['Quota Month','QUOTA MONTH'],['Delivery Month','DELIVERY MONTH'],['BL Number','BL NUMBER'],['Diameter','DIAMETER'],['SOB Date','SOB DATE'],['ETA','ETA'],['No. of Containers','NO. OF CONTAINERS'],['Net Weight','NET WEIGHT'],['Gross Weight','GROSS WEIGHT'],['BL Status','BL STATUS'],['STWG Ref','STWG REF'],['Shipment Status','SHIPMENT STATUS'],['Price MT','PRICE MT'],['Custom Duties Cost','CUSTOM DUTIES COST'],['CD Due Date','CD DUE DATE'],['CD Paid Status','CD PAID STATUS'],['STWG Cost','STWG COST'],['STWG Due Date','STWG DUE DATE'],['STWG Paid Status','STWG PAID STATUS'],['Invoice Value','INVOICE VALUE'],['Invoice Due Date','INVOICE DUE DATE'],['Invoice Paid Status','INVOICE PAID STATUS']],
+   num:new Set(['NO. OF CONTAINERS','NET WEIGHT','GROSS WEIGHT','PRICE MT','CUSTOM DUTIES COST','STWG COST','INVOICE VALUE']),
+   date:new Set(['SOB DATE','ETA','CD DUE DATE','STWG DUE DATE','INVOICE DUE DATE','QUOTA MONTH','DELIVERY MONTH'])},
+ {sheet:'Sales Contracts', key:'contracts', prefix:'ct', label:'Sales Contracts',
+   cols:[['S Number','S Number'],['Customer','Customer'],['Product','Product'],['Spec','Spec'],['Service Port','Service Port'],['Quota','Quota'],['QP','QP'],['CCY','CCY'],['Tonnage','Tonnage'],['BL Qty','BL Qty'],['Lots','Lots'],['Premium','Premium'],['Payment Terms','Payment Terms'],['P number','P number'],['Stock','Stock'],['BL Allocation','BL Allocation'],['LME','LME'],['FX','FX']],
+   num:new Set(['Tonnage','BL Qty','Lots','Premium','LME','FX']),
+   date:new Set(['Quota'])},
+ {sheet:'Credit', key:'credit', prefix:'cr', label:'Credit lines',
+   cols:[['Short Name','Short Name'],['Full Company Name','Full Company Name'],['Best Served From','Best Served From'],['VAT Code','VAT CODE'],['Address','Column1'],['City / Region','Column2'],['Country','Column3'],['MT / Month','MT / MONTH'],['Payment','Payment'],['Quota Overlap','Quota Overlap'],['Original Limit','Original Limit'],['Limit Requested','Limit Requested'],['KRG Limit Status','KRG Limit Status']],
+   num:new Set(['MT / MONTH','Quota Overlap','Original Limit','Limit Requested','KRG Limit Status']),
+   date:new Set()},
+ {sheet:'Receivables', key:'ar', prefix:'ar', label:'Receivables',
+   cols:[['Customer','CUSTOMER'],['Premium','PREMIUM'],['Delivery Q','DELIVERY Q'],['Net Tonnage','NET TONNAGE'],['Price','PRICE'],['Total Amount','TOTAL AMOUNT'],['Payment Term','PAYMENT TERM'],['Delivery Date','DELIVERY DATE'],['Invoice No','INV No.'],['Due Date','DUE DATE'],['Status','Status'],['Paid Date','PAID DATE']],
+   num:new Set(['PREMIUM','NET TONNAGE','PRICE','TOTAL AMOUNT']),
+   date:new Set(['DELIVERY Q','DELIVERY DATE','DUE DATE','PAID DATE'])}
+];
+const RID='Row ID (do not edit)';
+function corePermFor(key){return {shipments:'edit_shipment',contracts:'edit_contract',credit:'edit_credit',ar:'edit_ar'}[key];}
+function coreCellOut(field,val){ if(val==null)return ''; return val; }
+async function downloadCoreTemplate(){
+  if(!requirePerm('import','download the data template'))return;
+  try{await ensureXLSX();}catch(e){toast('Could not load the export engine (needs an internet connection)','amber');return;}
+  const wb=XLSX.utils.book_new();
+  const readme=[['KRG Pipeline — core data template'],[],
+    ['This file contains your CURRENT pipeline data, one sheet per dataset.'],
+    ['Edit values in place to update a row. Matching is by the "'+RID+'" column.'],
+    ['• Keep the Row ID to UPDATE that existing row.'],
+    ['• Add a new row and LEAVE Row ID BLANK to create a new record.'],
+    ['• Rows are never deleted by import. Remove nothing — clearing a row does nothing.'],[],
+    ['Preserved automatically (not shown here, never overwritten):'],
+    ['  · BL container / PB details and PB allocations'],
+    ['  · contract pricing tranches, provisional & final invoice fields'],[],
+    ['Dates: YYYY-MM-DD. Amounts: numbers only (no currency symbols or commas).']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(readme),'READ ME');
+  CORE_SCHEMA.forEach(s=>{
+    const header=[RID,...s.cols.map(c=>c[0])];
+    const body=(Store.d[s.key]||[]).map(r=>[r.id,...s.cols.map(c=>coreCellOut(c[1],r[c[1]]))]);
+    const ws=XLSX.utils.aoa_to_sheet([header,...body]);
+    ws['!cols']=header.map(hh=>({wch:Math.max(String(hh).length+2,14)}));
+    XLSX.utils.book_append_sheet(wb,ws,s.sheet);
+  });
+  XLSX.writeFile(wb,'KRG-pipeline-data-'+iso(new Date())+'.xlsx');
+  audit('core data template downloaded');toast('Data template downloaded with current records','green');
+}
+async function importCoreExcel(file){
+  if(!requirePerm('import','import pipeline data'))return;
+  try{await ensureXLSX();}catch(e){toast('Could not load the import engine (needs an internet connection)','amber');return;}
+  const buf=await file.arrayBuffer();
+  let wb;try{wb=XLSX.read(buf,{type:'array',cellDates:true});}catch(e){toast('Could not read that file — is it a valid .xlsx?','amber');return;}
+  const plan=[];const problems=[];
+  CORE_SCHEMA.forEach(s=>{
+    const ws=wb.Sheets[s.sheet];if(!ws)return;
+    if(!Auth.can(corePermFor(s.key))){problems.push([s.label,'skipped — you don\u2019t have permission to edit this dataset']);return;}
+    const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',blankrows:false});
+    if(aoa.length<2){plan.push({s,updates:[],adds:[],missing:[]});return;}
+    const head=aoa[0].map(h=>String(h||'').trim().toLowerCase());
+    const ridIdx=head.indexOf(RID.toLowerCase());
+    const idx={};s.cols.forEach(c=>{const i=head.indexOf(c[0].toLowerCase());if(i>=0)idx[c[1]]=i;});
+    const byId={};(Store.d[s.key]||[]).forEach(r=>byId[r.id]=r);
+    const updates=[],adds=[],missing=[];
+    for(let r=1;r<aoa.length;r++){
+      const line=aoa[r];if(!line||!line.some(x=>String(x??'').trim()!==''))continue;
+      const vals={};
+      s.cols.forEach(c=>{const i=idx[c[1]];if(i==null)return;let val=line[i];
+        if(val===''||val==null){vals[c[1]]=null;return;}
+        if(s.date.has(c[1])){val=(val instanceof Date)?iso(new Date(val.getFullYear(),val.getMonth(),val.getDate())):String(val).trim();}
+        else if(s.num.has(c[1])){const n=num(String(val).replace(/[,\s]/g,''));val=n==null?null:n;}
+        else val=String(val).trim();
+        vals[c[1]]=val;});
+      const rid=ridIdx>=0?String(line[ridIdx]||'').trim():'';
+      if(rid){ if(byId[rid])updates.push({rid,vals}); else missing.push(rid); }
+      else adds.push({vals});
+    }
+    plan.push({s,updates,adds,missing});
+  });
+  if(!plan.length){toast('No recognised data sheets found in that file','amber');return;}
+  const rowsHtml=plan.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--border-2)">
+    <div style="display:flex;justify-content:space-between"><span class="t-strong">${esc(p.s.label)}</span>
+      <span class="mono">${p.updates.length} updated · ${p.adds.length} new${p.missing.length?` · <span style="color:var(--amber)">${p.missing.length} unknown ID</span>`:''}</span></div>
+    ${p.missing.length?`<div class="t-sub" style="margin-top:3px">Unknown Row IDs are ignored: ${esc(p.missing.slice(0,6).join(', '))}${p.missing.length>6?'…':''}</div>`:''}</div>`).join('');
+  const probHtml=problems.length?`<div class="callout amber" style="margin:12px 0">${svg('alert',16)}<div>${problems.map(p=>esc(p[0]+': '+p[1])).join('<br>')}</div></div>`:'';
+  const totU=plan.reduce((a,p)=>a+p.updates.length,0),totA=plan.reduce((a,p)=>a+p.adds.length,0);
+  openModal(`<div class="modal-h">${svg('upload',19)}<h3>Confirm data refresh</h3><div class="hint">${totU} rows updated in place · ${totA} new rows added</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="callout grey" style="margin-bottom:8px">${svg('alert',16)}<div>Existing rows are matched by Row ID and only the columns in the file are changed. PB allocations, container details, pricing tranches and invoice fields are preserved. Nothing is deleted. Take a backup first if unsure.</div></div>
+      ${probHtml}${rowsHtml}
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" id="coreBk" style="margin-right:auto">${svg('download',14)}<span>Backup first</span></button><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="coreGo">Apply refresh</button></div>`);
+  $('#coreBk').onclick=()=>{const blob=new Blob([JSON.stringify({data:Store.d,docs:Store.docs},null,1)],{type:'application/json'});const a=el('a',{href:URL.createObjectURL(blob),download:'krg-pre-import-backup-'+iso(new Date())+'.json'});a.click();toast('Backup downloaded','green');};
+  $('#coreGo').onclick=()=>{
+    let u=0,ad=0;
+    plan.forEach(p=>{
+      const byId={};(Store.d[p.s.key]||[]).forEach(r=>byId[r.id]=r);
+      p.updates.forEach(up=>{const row=byId[up.rid];if(!row)return;Object.keys(up.vals).forEach(f=>{row[f]=up.vals[f];});u++;});
+      p.adds.forEach(nw=>{const rec={id:uid(p.s.prefix)};p.s.cols.forEach(c=>{rec[c[1]]=(c[1] in nw.vals)?nw.vals[c[1]]:null;});if(p.s.key==='ar'&&!rec.Status)rec.Status='Open';if(p.s.key==='contracts'&&!Array.isArray(rec.pricings))rec.pricings=[];Store.d[p.s.key].push(rec);ad++;});
+    });
+    Store.save();audit('core data refreshed',totU+' updated, '+totA+' added');
+    toast('Data refreshed — '+u+' updated, '+ad+' added','green');closeModal();route();
+  };
+}
+
 
 /* ---------- J. BOOT ---------- */
 function showApp(){
