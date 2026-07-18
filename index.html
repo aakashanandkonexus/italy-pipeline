@@ -3741,6 +3741,22 @@ const Store={
     if(!this.d.calcTerms){this.d.calcTerms=[{term:'Net 30 days from delivery date',days:30},{term:'Net 60 days from delivery date',days:60},{term:'Net 90 days from delivery date',days:90},{term:'30 days EoM from delivery date',days:'EOM30'},{term:'60 days EoM from delivery date',days:'EOM60'}];this.save();}
     if(this.d.config&&this.d.config.dutyRateBillet==null){this.d.config.dutyRateBillet=this.d.config.dutyRate??0.06;this.d.config.dutyRateWireRod=0.075;this.save();}
     if(!Array.isArray(this.d.qpList)){this.d.qpList=['Average of M-1','Average of M-0','Unknown LME CSP (M-0)'];this.save();}
+    if(!Array.isArray(this.d.bankAccounts)){
+      this.d.bankAccounts=[{id:uid('bk'),accountNo:'92338517',bankName:'HSBC UK Bank PLC',bankAddress:'60 Queen Victoria Street, London, EC4N, 4TR',swift:'HBUKGB4B',accountName:'KONEXUS RESOURCES GROUP LIMITED',currency:'EUR',iban:'GB74HBUK40127692338517'}];
+      this.save();
+    }
+    if(!this.d.invoiceConfig){
+      this.d.invoiceConfig={
+        sellerName:'Konexus Resources Group Limited',
+        sellerHeader:'14 Brook\u2019s Mews, London W1K 4DG, UK\nReg No: 9597137 | VAT Reg No: GB438590172',
+        sellerFooter:'Konexus Resources Group Limited | 14 Brooks Mews, London, W1K 4DG, United Kingdom. | www.konexusresources.com',
+        assignmentClause:'Konexus Resources Group Limited has assigned in full all its rights to claim and receive payment in relation to this delivery under our contract and the final commercial invoice to {BANK}. The total amount due must be paid by you on the due date in full and in immediately available funds, without set-off or counter-claim and free and clear of any deduction or withholding directly to the referred account with {BANK}. This instruction can only be revoked or changed by {BANK}\u2019s written instructions to you.',
+        vatClause:'Seller\u2019s Italian VAT Number: 02985050992\nInversione Contabile ex Art.17, par 2, DPR 633/1972.\nC. STEINWEG - GMT S.R.L  Rappresentante fiscali in Italia di Konexus Resources Group Limited.\nSupply of goods made in Italy sold by a subject not-resident in Italy and regularly imported.',
+        footNote:'KONEXUS RESOURCES SHOULD RECEIVE THE FULL INVOICED AMOUNT W/O DEDUCTION OF ANY BANKING COSTS.\nANY DEDUCTIONS WILL BE RECOVERED.',
+        hsBillets:'7601.20',hsWireRod:'7605.11'
+      };
+      this.save();
+    }
     if(!this.d.pricingCleared){
       this.d.contracts.forEach(c=>{delete c.pricings;delete c.Averaging;delete c.avgStart;delete c.avgEnd;c.LME=null;c.FX=null;
         ['Final Price','Priced/ Not Priced','Priced/Not Priced','Priced Lots','Averaging Lots','Unpriced Lots','Unsold','Priced Date'].forEach(k=>delete c[k]);});
@@ -4260,7 +4276,382 @@ function openBLPicker(current,onPick){
 function allocateBL(lineId,sn){
   if(!requirePerm('edit_contract','allocate BLs'))return;
   const l=Store.d.contracts.find(x=>x.id===lineId);if(!l)return;
-  openBLPicker(l['BL Allocation'],bl=>{l['BL Allocation']=bl||null;Store.save();audit(bl?'BL allocated '+bl:'BL allocation cleared',sn);toast('Allocation updated','green');route();});
+  openBLPicker(l['BL Allocation'],bl=>{if(blKey(bl)!==blKey(l['BL Allocation']))l.pbAlloc=[];l['BL Allocation']=bl||null;Store.save();audit(bl?'BL allocated '+bl:'BL allocation cleared',sn);toast('Allocation updated','green');route();});
+}
+/* ----- Container / PB details per BL, PB allocation to deliveries, delivery summary ----- */
+function shipContainers(s){return Array.isArray(s.containers)?s.containers.slice():[];}
+function pbCount(s){return shipContainers(s).filter(c=>String(c.pb||'').trim()).length;}
+// pb -> contract line (excluding one line) for all lines allocated to this BL
+function pbOwners(bl,excludeId){
+  const m={};const k=blKey(bl);if(!k)return m;
+  Store.d.contracts.forEach(c=>{if(c.id!==excludeId&&blKey(c['BL Allocation'])===k)(Array.isArray(c.pbAlloc)?c.pbAlloc:[]).forEach(pb=>m[pb]=c);});
+  return m;
+}
+function openContainers(shipId){
+  if(!requirePerm('edit_shipment','edit container details'))return;
+  const s=Store.d.shipments.find(x=>x.id===shipId);if(!s)return;
+  const exp=Math.max(1,Math.round(deriveShipment(s)._containers||0)||1);
+  let rows=shipContainers(s);
+  if(!rows.length)rows=Array.from({length:exp},(_,i)=>({pb:'',seq:i+1,bundles:null,pieces:null,net:null,gross:null}));
+  openModal(`<div class="modal-h">${svg('box',19)}<h3>Container details — ${esc(s['BL NUMBER'])}</h3><div class="hint">${exp} container${exp>1?'s':''} on this BL (net ÷ 25)</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="tbl-wrap" style="max-height:56vh;overflow:auto"><table class="tbl" id="cntTbl"><thead><tr>
+        <th style="width:34px">#</th><th>PB number</th><th class="num">Dispatch order</th><th class="num">Bundles</th><th class="num">Pieces</th><th class="num">Net (t)</th><th class="num">Gross (t)</th><th></th>
+      </tr></thead><tbody id="cntBody"></tbody></table></div>
+      <div class="metric-row" style="margin-top:12px" id="cntTot"></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost btn-sm" id="cntAdd" style="margin-right:auto">${svg('plus',14)}<span>Add container</span></button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="cntSave">Save containers</button></div>`,{wide:true,noFocus:true});
+  const body=$('#cntBody');
+  const inp=(i,f,v,type)=>`<input class="inp" style="min-width:${f==='pb'?120:76}px" data-i="${i}" data-f="${f}" ${type==='n'?'type="number" step="any"':''} value="${esc(v??'')}">`;
+  const totals=()=>{
+    const n=rows.reduce((a,r)=>a+(num(r.net)||0),0),g=rows.reduce((a,r)=>a+(num(r.gross)||0),0);
+    const b=rows.reduce((a,r)=>a+(num(r.bundles)||0),0),p=rows.reduce((a,r)=>a+(num(r.pieces)||0),0);
+    const declared=num(s['NET WEIGHT']);
+    $('#cntTot').innerHTML=`<div class="metric"><div class="m-l">Containers</div><div class="m-v">${rows.length}</div></div>
+      <div class="metric"><div class="m-l">Net total</div><div class="m-v" style="${declared!=null&&Math.abs(n-declared)>0.5?'color:var(--amber)':''}">${fmtN(n,3)} t</div></div>
+      <div class="metric"><div class="m-l">Gross total</div><div class="m-v">${fmtN(g,3)} t</div></div>
+      <div class="metric"><div class="m-l">Bundles</div><div class="m-v">${fmtN(b,0)}</div></div>
+      <div class="metric"><div class="m-l">Pieces</div><div class="m-v">${fmtN(p,0)}</div></div>
+      <div class="metric"><div class="m-l">BL net weight</div><div class="m-v">${fmtT(declared)} t</div></div>`;
+  };
+  const draw=()=>{
+    body.innerHTML=rows.map((r,i)=>`<tr><td class="t-sub mono">${i+1}</td>
+      <td>${inp(i,'pb',r.pb)}</td><td class="num">${inp(i,'seq',r.seq,'n')}</td>
+      <td class="num">${inp(i,'bundles',r.bundles,'n')}</td><td class="num">${inp(i,'pieces',r.pieces,'n')}</td>
+      <td class="num">${inp(i,'net',r.net,'n')}</td><td class="num">${inp(i,'gross',r.gross,'n')}</td>
+      <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-del="${i}" title="Remove">${svg('trash',13)}</button></td></tr>`).join('');
+    body.querySelectorAll('input').forEach(x=>x.addEventListener('input',()=>{const i=+x.dataset.i,f=x.dataset.f;rows[i][f]=x.dataset.f==='pb'?x.value.trim():(x.value===''?null:+x.value);totals();}));
+    body.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{rows.splice(+b.dataset.del,1);draw();});
+    totals();
+  };
+  draw();
+  $('#cntAdd').onclick=()=>{rows.push({pb:'',seq:rows.length+1,bundles:null,pieces:null,net:null,gross:null});draw();};
+  $('#cntSave').onclick=()=>{
+    const filled=rows.filter(r=>String(r.pb||'').trim()||r.net!=null||r.bundles!=null||r.gross!=null||r.pieces!=null);
+    const pbs=filled.map(r=>String(r.pb||'').trim()).filter(Boolean);
+    if(new Set(pbs).size!==pbs.length){toast('Duplicate PB numbers — each container needs a unique PB','amber');return;}
+    // keep PB allocations on contracts consistent if a PB was renamed away
+    const kept=new Set(pbs);
+    Store.d.contracts.forEach(c=>{if(blKey(c['BL Allocation'])===blKey(s['BL NUMBER'])&&Array.isArray(c.pbAlloc))c.pbAlloc=c.pbAlloc.filter(pb=>kept.has(pb));});
+    s.containers=filled.map(r=>({pb:String(r.pb||'').trim(),seq:num(r.seq),bundles:num(r.bundles),pieces:num(r.pieces),net:num(r.net),gross:num(r.gross)}));
+    audit('container details saved',s['BL NUMBER']+' · '+filled.length+' cntrs');
+    afterSave('Container details saved');
+  };
+}
+/* PB allocation of a BL's containers to a specific contract delivery */
+function allocatePBs(lineId,sn){
+  if(!requirePerm('edit_contract','allocate PB numbers'))return;
+  const l=Store.d.contracts.find(x=>x.id===lineId);if(!l)return;
+  const bl=l['BL Allocation'];const sh=shipmentByBL(bl);
+  if(!sh){toast('Allocate a BL to this delivery first','amber');return;}
+  const cnts=shipContainers(sh).filter(c=>String(c.pb||'').trim());
+  if(!cnts.length){toast('No PB numbers recorded on '+bl+' yet — add container details on the Shipments page first','amber');return;}
+  const owners=pbOwners(bl,l.id);
+  let sel=new Set(Array.isArray(l.pbAlloc)?l.pbAlloc:[]);
+  openModal(`<div class="modal-h">${svg('box',19)}<h3>Allocate PB numbers — ${esc(sn)}</h3><div class="hint">${esc(bl)} · ${fmtMY(l.Quota)} · ${esc(l.Customer)}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:36px"></th><th>PB number</th><th class="num">Dispatch</th><th class="num">Bundles</th><th class="num">Net (t)</th><th class="num">Gross (t)</th><th>Allocated to</th></tr></thead><tbody id="pbBody"></tbody></table></div>
+      <div class="metric-row" style="margin-top:12px" id="pbTot"></div>
+    </div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="pbSave">Save allocation</button></div>`,{wide:true,noFocus:true});
+  const body=$('#pbBody');
+  const totals=()=>{
+    const picked=cnts.filter(c=>sel.has(c.pb));
+    const n=picked.reduce((a,c)=>a+(num(c.net)||0),0),b=picked.reduce((a,c)=>a+(num(c.bundles)||0),0);
+    $('#pbTot').innerHTML=`<div class="metric"><div class="m-l">Selected</div><div class="m-v">${picked.length} / ${cnts.length}</div></div>
+      <div class="metric"><div class="m-l">Net allocated</div><div class="m-v">${fmtN(n,3)} t</div></div>
+      <div class="metric"><div class="m-l">Bundles</div><div class="m-v">${fmtN(b,0)}</div></div>
+      <div class="metric"><div class="m-l">Contract tonnage</div><div class="m-v" style="${num(l.Tonnage)!=null&&Math.abs(n-num(l.Tonnage))>0.5?'color:var(--amber)':''}">${fmtN(l.Tonnage)} t</div></div>`;
+  };
+  const draw=()=>{
+    body.innerHTML=cnts.map(c=>{const own=owners[c.pb];const taken=!!own;const on=sel.has(c.pb);
+      return `<tr class="${taken?'':'rowlink'}" data-pb="${esc(c.pb)}" style="${taken?'opacity:.55':''}">
+        <td><input type="checkbox" ${on?'checked':''} ${taken?'disabled':''} data-cb="${esc(c.pb)}"></td>
+        <td class="mono t-strong">${esc(c.pb)}</td><td class="num">${fmtN(c.seq,0)}</td><td class="num">${fmtN(c.bundles,0)}</td>
+        <td class="num">${fmtT(c.net)}</td><td class="num">${fmtT(c.gross)}</td>
+        <td>${taken?`<span class="chip amber" title="Already allocated">${esc(own['S Number'])} · ${esc(custShort(own.Customer||''))}</span>`:on?'<span class="chip green">this delivery</span>':'<span class="chip grey">free</span>'}</td></tr>`;}).join('');
+    body.querySelectorAll('[data-cb]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.cb):sel.delete(cb.dataset.cb);draw();});
+    body.querySelectorAll('tr.rowlink').forEach(r=>r.onclick=e=>{if(e.target.tagName==='INPUT')return;const pb=r.dataset.pb;sel.has(pb)?sel.delete(pb):sel.add(pb);draw();});
+    totals();
+  };
+  draw();
+  $('#pbSave').onclick=()=>{
+    l.pbAlloc=cnts.map(c=>c.pb).filter(pb=>sel.has(pb));
+    audit('PBs allocated',sn+' · '+l.pbAlloc.length+' PBs on '+bl);
+    afterSave('PB allocation saved');
+  };
+}
+/* Delivery summary (matches the desk's delivery format) + provisional invoice (record only) */
+function warehouseOf(port){const p=titlePort(port||'');return p?p+', Italy':'';}
+function deliverySummaryRows(l){
+  const sh=shipmentByBL(l['BL Allocation']);if(!sh)return [];
+  const byPb={};shipContainers(sh).forEach(c=>{if(String(c.pb||'').trim())byPb[c.pb]=c;});
+  const picked=(Array.isArray(l.pbAlloc)?l.pbAlloc:[]).map(pb=>byPb[pb]).filter(Boolean)
+    .sort((a,b)=>(num(a.seq)??1e9)-(num(b.seq)??1e9));
+  return picked.map((c,i)=>({
+    'Warehouse':warehouseOf(l['Service Port']||sh['PORT OF DELIVERY']),
+    'P-Contract':l['P number']||'',
+    'Customer':l.Customer||'',
+    'Quota':fmtMY(l.Quota),
+    'Size':l.Spec||'',
+    'Inco Term':l['Inco Term']||'',
+    'BL Number':sh['BL NUMBER']||'',
+    'Steinweg Ref':sh['STWG REF']||'',
+    'PB Number':c.pb,
+    'Dispatch Seq':i+1,
+    'Net Weight':num(c.net),
+    'Gross Weight':num(c.gross),
+    'Bundle Qty':num(c.bundles),
+    'Pieces Qty':num(c.pieces)
+  }));
+}
+function openDeliverySummary(lineId,sn){
+  const l=Store.d.contracts.find(x=>x.id===lineId);if(!l)return;
+  const canEdit=Auth.can('edit_contract');
+  const rows=deliverySummaryRows(l);
+  const cols=['Warehouse','P-Contract','Customer','Quota','Size','Inco Term','BL Number','Steinweg Ref','PB Number','Dispatch Seq','Net Weight','Gross Weight','Bundle Qty','Pieces Qty'];
+  const numc=c=>/Weight|Qty|Seq/.test(c);
+  const tot=k=>rows.reduce((a,r)=>a+(num(r[k])||0),0);
+  openModal(`<div class="modal-h">${svg('truck',19)}<h3>Delivery summary — ${esc(sn)}</h3><div class="hint">${esc(l['BL Allocation']||'')} · ${fmtMY(l.Quota)} · ${rows.length} container${rows.length===1?'':'s'}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="form-grid" style="margin-bottom:12px">
+        <div class="fg"><label>Inco term</label><input class="inp" id="ds_inco" placeholder="e.g. DDP Pisticci" value="${esc(l['Inco Term']||'')}" ${canEdit?'':'readonly'}></div>
+        <div class="fg"><label>Provisional invoice no</label><input class="inp" id="ds_pinv" value="${esc(l['Prov Inv No']||'')}" ${canEdit?'':'readonly'}></div>
+        <div class="fg"><label>Provisional invoice amount (€)</label><input class="inp" id="ds_pamt" type="number" step="any" value="${esc(l['Prov Inv Amount']??'')}" ${canEdit?'':'readonly'}></div>
+      </div>
+      <div class="callout grey" style="margin-bottom:12px">${svg('receipt',16)}<div>The provisional invoice is kept <b>for record only</b> — it is never adjusted against receivables or the customer's credit line.</div></div>
+      ${rows.length?`<div class="tbl-wrap" style="max-height:46vh;overflow:auto"><table class="tbl"><thead><tr>${cols.map(c=>`<th class="${numc(c)?'num':''}">${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td class="${numc(c)?'num mono':''}">${esc(r[c]==null||r[c]===''?'—':(typeof r[c]==='number'&&/Weight/.test(c)?fmtN(r[c],3):r[c]))}</td>`).join('')}</tr>`).join('')}
+        <tr style="font-weight:600">${cols.map(c=>`<td class="${numc(c)?'num mono':''}">${c==='Warehouse'?'Total':/Weight/.test(c)?fmtN(tot(c),3):/Qty/.test(c)?fmtN(tot(c),0):''}</td>`).join('')}</tr></tbody></table></div>`
+      :emptyBox('box','No PBs allocated','Allocate PB numbers to this delivery first — the summary is built from them.')}
+    </div>
+    <div class="modal-f">${rows.length&&Auth.can('export')?`<button class="btn btn-ghost" id="ds_xl" style="margin-right:auto">${svg('download',15)}<span>Export to Excel</span></button>`:''}
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>${canEdit?`<button class="btn btn-primary" id="ds_save">Save details</button>`:''}</div>`,{wide:true,noFocus:true});
+  const persist=()=>{
+    l['Inco Term']=gv('ds_inco')||null;
+    l['Prov Inv No']=gv('ds_pinv')||null;
+    l['Prov Inv Amount']=gvn('ds_pamt');
+    Store.save();
+  };
+  if(canEdit)$('#ds_save').onclick=()=>{persist();audit('delivery details saved',sn+(gv('ds_pinv')?' · prov inv '+gv('ds_pinv'):''));toast('Saved — provisional invoice kept for record only','green');closeModal();route();};
+  const xl=$('#ds_xl');
+  if(xl)xl.onclick=async()=>{
+    if(canEdit)persist();
+    try{await ensureXLSX();}catch(e){toast('Could not load the export engine (needs an internet connection)','amber');return;}
+    const fresh=deliverySummaryRows(l);
+    const aoa=[];
+    const trow=Array(cols.length).fill('');
+    trow[cols.indexOf('Net Weight')]=fresh.reduce((a,r)=>a+(num(r['Net Weight'])||0),0);
+    trow[cols.indexOf('Gross Weight')]=fresh.reduce((a,r)=>a+(num(r['Gross Weight'])||0),0);
+    trow[cols.indexOf('Bundle Qty')]=fresh.reduce((a,r)=>a+(num(r['Bundle Qty'])||0),0);
+    trow[cols.indexOf('Pieces Qty')]=fresh.reduce((a,r)=>a+(num(r['Pieces Qty'])||0),0);
+    aoa.push(trow,cols,...fresh.map(r=>cols.map(c=>r[c]??'')));
+    if(l['Prov Inv No']||l['Prov Inv Amount']!=null)aoa.push([],['Provisional invoice (record only)',l['Prov Inv No']||'',l['Prov Inv Amount']??'']);
+    const ws=XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols']=cols.map(c=>({wch:Math.max(c.length+2,12)}));
+    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Delivery Summary');
+    XLSX.writeFile(wb,'delivery-'+String(sn).replace(/[^\w-]/g,'')+'-'+String(l['BL Allocation']||'').trim().replace(/[^\w-]/g,'')+'-'+iso(new Date())+'.xlsx');
+    audit('delivery summary exported',sn);toast('Delivery summary exported','green');
+  };
+}
+/* ---------- Final invoice from a receivable (PDF) ---------- */
+async function ensureJsPDF(){if(window.jspdf&&window.jspdf.jsPDF)return;await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');}
+function buyerInfo(custName){
+  const dir=customerDirectory();let e=dir[custKey(custName)];let c=e?.credit;
+  if(!c||!c['VAT CODE']){
+    // fallback: direct case-insensitive match on full/short name (canon fuzzy matching can miss)
+    const norm=s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    const t=norm(custName);
+    c=Store.d.credit.find(r=>{const f=norm(r['Full Company Name']),s=norm(r['Short Name']);return f===t||s===t||(t&&(f.includes(t)||t.includes(s)&&s.length>3))})||c;
+  }
+  const addr=c?[c.Column1,c.Column2,c.Column3].map(x=>String(x||'').replace(/\u00a0/g,' ').trim()).filter(Boolean):[];
+  return {name:(c&&c['Full Company Name'])||custName||'',address:addr,vat:c?.['VAT CODE']||''};
+}
+function bankByAccount(no){return (Store.d.bankAccounts||[]).find(b=>String(b.accountNo)===String(no))||null;}
+// contract lines for a customer, best-matched to a receivable's delivery quota (for provisional amount + contract no)
+function contractLinesFor(custName){
+  const k=custKey(custName);
+  return Store.d.contracts.map(deriveContract).filter(c=>custKey(c.Customer)===k);
+}
+function bestContractLine(a){
+  const lines=contractLinesFor(a.CUSTOMER);if(!lines.length)return null;
+  const q=fmtMY(a['DELIVERY Q']);
+  return lines.find(l=>l.Quota&&fmtMY(l.Quota)===q&&(l['Prov Inv Amount']!=null||l['Prov Inv No']))
+    || lines.find(l=>l.Quota&&fmtMY(l.Quota)===q)
+    || lines.find(l=>l['Prov Inv Amount']!=null) || lines[0];
+}
+function bundlesForLine(l){
+  if(!l)return null;const sh=shipmentByBL(l['BL Allocation']);if(!sh)return null;
+  const byPb={};shipContainers(sh).forEach(c=>{if(String(c.pb||'').trim())byPb[c.pb]=c;});
+  const picked=(Array.isArray(l.pbAlloc)?l.pbAlloc:[]).map(pb=>byPb[pb]).filter(Boolean);
+  if(!picked.length)return null;
+  return picked.reduce((s,c)=>s+(num(c.bundles)||0),0);
+}
+const ONES=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+const TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+function words999(n){let s='';if(n>=100){s+=ONES[Math.floor(n/100)]+' hundred';n%=100;if(n)s+=' ';}if(n>=20){s+=TENS[Math.floor(n/10)];n%=10;if(n)s+='-'+ONES[n];}else if(n)s+=ONES[n];return s;}
+function numToWords(n){
+  n=Math.floor(Math.abs(n));if(n===0)return'zero';
+  const g=['',' thousand',' million',' billion'];let i=0,out='';
+  while(n>0){const c=n%1000;if(c)out=words999(c)+g[i]+(out?' '+out:'');n=Math.floor(n/1000);i++;}
+  return out.trim();
+}
+function amountInWords(amt,ccy){
+  const cur=(ccy||'EUR').toUpperCase();const unit=cur==='USD'?['Dollars','Cents']:cur==='GBP'?['Pounds','Pence']:['Euros','Cents'];
+  const whole=Math.floor(Math.abs(amt||0));const cents=Math.round((Math.abs(amt||0)-whole)*100);
+  const cap=s=>s.replace(/\b\w/g,c=>c.toUpperCase());
+  let w=cap(numToWords(whole))+' '+unit[0];
+  if(cents>0)w+=' and '+cap(numToWords(cents))+' '+unit[1];
+  return w;
+}
+function openInvoice(arId){
+  const a=Store.d.ar.find(x=>x.id===arId);if(!a)return;
+  if(!(Store.d.bankAccounts||[]).length){toast('Add a bank account in Administration first','amber');return;}
+  const canEdit=Auth.can('edit_ar');
+  const bi=buyerInfo(a.CUSTOMER);
+  const line=bestContractLine(a);
+  const ic=Store.d.invoiceConfig||{};
+  const prov=line?num(line['Prov Inv Amount']):null;
+  const total=num(a['TOTAL AMOUNT'])??((num(a['NET TONNAGE'])||0)*(num(a.PRICE)||0));
+  const product=line?.Product||'';const spec=line?.Spec||'';
+  const desc=a['Inv Desc']||[product?('Aluminium '+product):'',spec].filter(Boolean).join(' ').trim();
+  const hs=a['Inv HS']||(product==='Wire Rods'?ic.hsWireRod:ic.hsBillets)||'';
+  const bundles=a['Inv Bundles']??bundlesForLine(line);
+  const accSel=a['Inv Bank']||(Store.d.bankAccounts[0]||{}).accountNo;
+  const sn=a['Inv Contract']||line?.['S Number']||'';
+  const inco=a['Inv Inco']||line?.['Inco Term']||'';
+  const amt=a['Inv Amount']??(prov!=null?prov:total);
+  const bankOpts=(Store.d.bankAccounts||[]).map(b=>`<option value="${esc(b.accountNo)}" ${String(accSel)===String(b.accountNo)?'selected':''}>${esc(b.accountNo)} — ${esc(b.bankName)} (${esc(b.currency||'EUR')})</option>`).join('');
+  const snOpts=[...new Set(contractLinesFor(a.CUSTOMER).map(l=>l['S Number']).filter(Boolean))].map(s=>`<option value="${esc(s)}" ${sn===s?'selected':''}>${esc(s)}</option>`).join('');
+  openModal(`<div class="modal-h">${svg('receipt',19)}<h3>Final invoice — ${esc(a['INV No.']||'draft')}</h3><div class="hint">${esc(bi.name)}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="callout grey" style="margin-bottom:12px">${svg('alert',16)}<div>Buyer name, address and VAT are pulled from the customer record. The amount defaults to the <b>provisional amount</b> recorded on the contract lifecycle${prov!=null?' ('+fmtEur2(prov)+')':' — none set, using net × price'}. Signature and stamp are added on paper after export.</div></div>
+      <div class="form-grid">
+        ${fld('Invoice number','iv_no',a['INV No.'])}
+        ${fld('Invoice date','iv_date',a['Inv Date']||iso(today()),'date')}
+        <div class="fg"><label>Contract number</label><select class="inp" id="iv_sn"><option value="">—</option>${snOpts}</select></div>
+        ${fld('Delivery date','iv_deliv',a['DELIVERY DATE'],'date')}
+        ${fld('Inco term','iv_inco',inco,'text',false,'e.g. DDP Porzano Di Leno')}
+        ${fld('Payment term','iv_pt',a['PAYMENT TERM'])}
+        ${fld('Payment date (due)','iv_due',a['DUE DATE'],'date')}
+        ${fld('HS code','iv_hs',hs)}
+      </div>
+      <div class="divider"></div>
+      <div class="fg full" style="margin-bottom:10px"><label>Description of goods</label><input class="inp" id="iv_desc" value="${esc(desc)}"></div>
+      <div class="form-grid">
+        ${fld('No. of bundles','iv_bund',bundles,'number')}
+        ${fld('Premium','iv_prem',a.PREMIUM)}
+        ${fld('Quantity (MT)','iv_qty',a['NET TONNAGE'],'number')}
+        ${fld('Unit price / MT','iv_price',a.PRICE,'number')}
+        ${fld('Amount (€)','iv_amt',amt,'number')}
+      </div>
+      <div class="metric-row" style="margin:6px 0 12px"><div class="metric"><div class="m-l">Amount in words</div><div class="m-v" style="font-size:13px;font-weight:500" id="iv_words">—</div></div></div>
+      <div class="divider"></div>
+      <div class="hint" style="font-weight:600;color:var(--ink-2);margin-bottom:8px">Banking (select the receiving account)</div>
+      <div class="fg full" style="margin-bottom:8px"><label>Account number</label><select class="inp" id="iv_bank">${bankOpts}</select></div>
+      <div id="iv_bankPrev" class="metric-row"></div>
+    </div>
+    <div class="modal-f">${Auth.can('export')?`<button class="btn btn-primary" id="iv_pdf" style="margin-right:auto">${svg('download',15)}<span>Export PDF</span></button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Close</button>${canEdit?`<button class="btn btn-ghost" id="iv_save">Save details</button>`:''}</div>`,{wide:true,noFocus:true});
+  const bankPrev=()=>{const b=bankByAccount(gv('iv_bank'));const p=$('#iv_bankPrev');
+    p.innerHTML=b?`<div class="metric"><div class="m-l">Bank</div><div class="m-v" style="font-size:13px">${esc(b.bankName)}</div></div>
+      <div class="metric"><div class="m-l">SWIFT</div><div class="m-v" style="font-size:13px">${esc(b.swift||'—')}</div></div>
+      <div class="metric"><div class="m-l">Account name</div><div class="m-v" style="font-size:12px">${esc(b.accountName||'—')}</div></div>
+      <div class="metric"><div class="m-l">Currency</div><div class="m-v" style="font-size:13px">${esc(b.currency||'EUR')}</div></div>
+      <div class="metric"><div class="m-l">IBAN</div><div class="m-v" style="font-size:12px">${esc(b.iban||'—')}</div></div>`:'<div class="hint">No account selected.</div>';};
+  const wordsPrev=()=>{const b=bankByAccount(gv('iv_bank'));$('#iv_words').textContent=amountInWords(gvn('iv_amt')||0,b?.currency||'EUR');};
+  ['iv_amt'].forEach(i=>$('#'+i).addEventListener('input',wordsPrev));
+  $('#iv_bank').addEventListener('change',()=>{bankPrev();wordsPrev();});
+  bankPrev();wordsPrev();
+  const persist=()=>{Object.assign(a,{'INV No.':gv('iv_no')||a['INV No.'],'Inv Date':gv('iv_date')||null,'Inv Contract':gv('iv_sn')||null,'Inv Inco':gv('iv_inco')||null,
+    'Inv HS':gv('iv_hs')||null,'Inv Desc':gv('iv_desc')||null,'Inv Bundles':gvn('iv_bund'),'Inv Amount':gvn('iv_amt'),'Inv Bank':gv('iv_bank')||null});Store.save();};
+  if(canEdit)$('#iv_save').onclick=()=>{persist();audit('invoice details saved',gv('iv_no')||a.CUSTOMER);toast('Invoice details saved','green');};
+  const pdfBtn=$('#iv_pdf');
+  if(pdfBtn)pdfBtn.onclick=async()=>{
+    if(canEdit)persist();
+    const b=bankByAccount(gv('iv_bank'));if(!b){toast('Select a bank account','amber');return;}
+    try{await ensureJsPDF();}catch(e){toast('Could not load the PDF engine (needs an internet connection)','amber');return;}
+    buildInvoicePDF({
+      buyer:bi,invNo:gv('iv_no'),invDate:gv('iv_date'),contract:gv('iv_sn'),delivery:gv('iv_deliv'),inco:gv('iv_inco'),
+      paymentTerm:gv('iv_pt'),paymentDate:gv('iv_due'),desc:gv('iv_desc'),hs:gv('iv_hs'),bundles:gvn('iv_bund'),
+      premium:gv('iv_prem'),qty:gvn('iv_qty'),price:gvn('iv_price'),amount:gvn('iv_amt'),bank:b,cfg:ic
+    });
+    audit('invoice PDF exported',gv('iv_no')||a.CUSTOMER);toast('Invoice PDF exported','green');
+  };
+}
+function buildInvoicePDF(d){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=14;let y=16;const ink=[30,36,46],grey=[110,118,130],line=[176,182,190];
+  const ccy=d.bank.currency||'EUR';const sym=ccy==='EUR'?'\u20ac':ccy==='USD'?'$':ccy==='GBP'?'\u00a3':'';
+  const money=v=>(num(v)==null?'':(num(v)).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}));
+  const setF=(sz,st='normal',col=ink)=>{doc.setFont('helvetica',st);doc.setFontSize(sz);doc.setTextColor(...col);};
+  // header
+  doc.setFillColor(30,52,92);doc.rect(M,y,12,12,'F');setF(15,'bold',[30,52,92]);doc.text('KRG',M+15,y+7);
+  setF(7,'normal',grey);doc.text('KONEXUS RESOURCES GROUP',M+15,y+11);
+  setF(12,'bold',ink);doc.text(d.cfg.sellerName||'Konexus Resources Group Limited',W-M,y+3,{align:'right'});
+  setF(8,'normal',grey);doc.text((d.cfg.sellerHeader||'').split('\n'),W-M,y+8,{align:'right'});
+  y+=20;doc.setDrawColor(...ink);doc.setLineWidth(0.5);doc.line(M,y,W-M,y);y+=7;
+  setF(11,'bold',ink);doc.text('FINAL INVOICE',W/2,y,{align:'center'});y+=8;
+  // two-column meta
+  const L=M,R=118;let ly=y,ry=y;
+  const rowL=(k,v)=>{setF(8.5,'bold',ink);doc.text(k,L,ly);doc.text(':',L+30,ly);setF(8.5,'normal',ink);const t=doc.splitTextToSize(String(v||''),68);doc.text(t,L+34,ly);ly+=Math.max(5,t.length*4.4);};
+  const rowR=(k,v)=>{setF(8.5,'bold',ink);doc.text(k,R,ry);doc.text(':',R+34,ry);setF(8.5,'normal',ink);const t=doc.splitTextToSize(String(v||''),44);doc.text(t,R+38,ry);ry+=Math.max(5,t.length*4.4);};
+  rowL('Buyer',d.buyer.name);
+  const addr=d.buyer.address||[];rowL('Address',addr[0]||'');addr.slice(1).forEach(l=>{setF(8.5,'normal',ink);doc.text(l,L+34,ly);ly+=4.6;});
+  ly+=1;rowL('VAT Number',d.buyer.vat);ly+=1;rowL('Payment Term',d.paymentTerm);
+  rowR('Invoice no.',d.invNo);rowR('Invoice date',fmtDate(d.invDate));rowR('Contract Number',d.contract);
+  rowR('Delivery',fmtDate(d.delivery));rowR('Inco Term',d.inco);rowR('Payment Date',fmtDate(d.paymentDate));
+  y=Math.max(ly,ry)+4;
+  // goods table
+  const cols=[M,120,152,180,W-M];const hrow=8;
+  doc.setDrawColor(...line);doc.setLineWidth(0.3);
+  doc.rect(M,y,W-2*M,hrow);
+  [cols[1],cols[2],cols[3]].forEach(x=>doc.line(x,y,x,y));
+  setF(8,'bold',ink);
+  doc.text('Description of Goods',M+2,y+5);doc.text('Quantity',cols[1]+3,y+3.6);doc.text('MT',cols[1]+3,y+6.8);
+  doc.text('Unit Price/MT',cols[2]+2,y+3.6);doc.text(ccy,cols[2]+11,y+6.8);
+  doc.text('Amount',cols[3]+5,y+3.6);doc.text(ccy,cols[3]+9,y+6.8);
+  y+=hrow;
+  const bodyH=30;doc.rect(M,y,W-2*M,bodyH);
+  [cols[1],cols[2],cols[3]].forEach(x=>doc.line(x,y,x,y+bodyH));
+  setF(9,'bold',ink);doc.text(String(d.desc||''),M+2,y+6);
+  setF(8,'normal',ink);let dy=y+11.5;
+  const spec=[['HS Code',d.hs],['No. of Bundles',d.bundles!=null?String(d.bundles):''],['Premium',d.premium]];
+  spec.forEach(([k,vv])=>{if(vv==null||vv==='')return;doc.text(k,M+2,dy);doc.text(':',M+30,dy);doc.text(String(vv),M+34,dy);dy+=5;});
+  setF(9,'normal',ink);
+  doc.text(fmtN(d.qty,3),cols[2]-3,y+6,{align:'right'});
+  doc.text(money(d.price),cols[3]-3,y+6,{align:'right'});
+  doc.text(money(d.amount),cols[4]-3,y+6,{align:'right'});
+  y+=bodyH;
+  // total
+  const th=8;doc.rect(M,y,W-2*M,th);doc.line(cols[3],y,cols[3],y+th);
+  setF(9,'bold',ink);doc.text('Total Amount Due',M+2,y+5.4);doc.text(sym+money(d.amount),cols[4]-3,y+5.4,{align:'right'});
+  y+=th;
+  const wh=9;doc.rect(M,y,W-2*M,wh);
+  setF(8.5,'bold',ink);doc.text('Total Amount in Words',M+2,y+5.6);
+  setF(8.5,'normal',ink);const wtxt=doc.splitTextToSize(amountInWords(d.amount,ccy),120);doc.text(wtxt,M+46,y+5.6);
+  y+=wh+7;
+  // banking
+  const bk=(k,v)=>{setF(8.5,'bold',ink);doc.text(k,M,y);doc.text(':',M+28,y);setF(8.5,'normal',ink);const t=doc.splitTextToSize(String(v||''),150);doc.text(t,M+32,y);y+=Math.max(5,t.length*4.6);};
+  bk('For Credit To',d.bank.bankName);if(d.bank.bankAddress){setF(8.5,'normal',ink);doc.text(doc.splitTextToSize(d.bank.bankAddress,150),M+32,y);y+=5;}
+  bk('Swift',d.bank.swift);bk('Account Name',d.bank.accountName);bk('Currency',ccy);bk('Account No.',d.bank.accountNo);bk('IBAN No.',d.bank.iban);
+  y+=4;
+  // assignment clause
+  setF(7.5,'normal',grey);
+  const ac=(d.cfg.assignmentClause||'').replace(/\{BANK\}/g,d.bank.bankName||'the referred bank');
+  doc.text(doc.splitTextToSize(ac,W-2*M),M,y);y+=doc.splitTextToSize(ac,W-2*M).length*3.6+5;
+  // VAT clause
+  setF(8.5,'bold',ink);doc.text('VAT Clause',M,y);y+=5;
+  setF(7.5,'normal',grey);doc.text(doc.splitTextToSize(d.cfg.vatClause||'',W-2*M),M,y);y+=doc.splitTextToSize(d.cfg.vatClause||'',W-2*M).length*3.6+6;
+  // foot note (bold underlined-ish, centered)
+  setF(8.5,'bold',ink);(d.cfg.footNote||'').split('\n').forEach(l=>{doc.text(l,W/2,y,{align:'center'});y+=4.6;});
+  // signature area (blank — added on paper)
+  y+=12;setF(9,'bold',ink);doc.text('For, '+(d.cfg.sellerName||'Konexus Resources Group Limited'),W-M,y,{align:'right'});
+  y+=12;setF(9,'normal',ink);doc.text('Signature:',W-70,y);doc.setDrawColor(...ink);doc.line(W-46,y,W-M,y);
+  // footer
+  doc.setDrawColor(...ink);doc.setLineWidth(0.5);doc.line(M,284,W-M,284);
+  setF(7.5,'bold',ink);doc.text(d.cfg.sellerFooter||'',W/2,289,{align:'center'});
+  doc.save('invoice-'+String(d.invNo||'draft').replace(/[^\w-]/g,'')+'.pdf');
 }
 function arPerformance(a){
   const due=parseDate(a['DUE DATE']), paid=parseDate(a['PAID DATE']);
@@ -4323,7 +4714,7 @@ RENDER.shipments=function(v){
     if(!rows.length){card.querySelector('.tbl-wrap').innerHTML=emptyBox('ship','No shipments match','Adjust filters or upload a BL.');host.append(card);return;}
     const t=el('table',{class:'tbl'});
     t.innerHTML=`<thead><tr><th>ETA</th><th>Tracking</th><th>BL Number</th><th>Steinweg Ref</th><th>Port</th><th>Purchase (Quota)</th><th>Diameter / Spec</th>
-      <th class="num">Net t</th><th class="num">Cntrs</th><th class="num">Price/t</th><th class="num">Duty</th><th class="num">STWG</th><th class="num">Invoice</th><th>Inv status</th><th>Financier</th></tr></thead>`;
+      <th class="num">Net t</th><th class="num">Cntrs</th><th>PB / Containers</th><th class="num">Price/t</th><th class="num">Duty</th><th class="num">STWG</th><th class="num">Invoice</th><th>Inv status</th><th>Financier</th></tr></thead>`;
     const bd=el('tbody');
     rows.forEach(s=>{
       const paid=String(s['INVOICE PAID STATUS']||'').toLowerCase()==='paid';
@@ -4334,12 +4725,14 @@ RENDER.shipments=function(v){
          <td class="mono t-strong">${esc(s['BL NUMBER'])}</td><td class="mono t-sub">${esc(s['STWG REF']||'—')}</td><td>${esc(s['PORT OF DELIVERY'])}</td>
          <td class="mono t-sub">${esc(s['PURCHASE NUMBER'])} <span class="chip grey" style="padding:1px 6px;margin-left:2px">${quotaLabel(s['QUOTA MONTH'])||'—'}</span></td><td class="t-sub">${esc(s.DIAMETER)}</td>
          <td class="num">${fmtT(s['NET WEIGHT'])}</td><td class="num">${fmtN(Math.round(s._containers),0)}</td>
+         <td>${Auth.can('edit_shipment')?`<button class="btn btn-ghost btn-sm" data-cnt="${s.id}">${svg('box',13)}<span>${pbCount(s)?fmtN(pbCount(s),0)+' PB':'Add'}</span></button>`:(pbCount(s)?`<span class="chip grey">${fmtN(pbCount(s),0)} PB</span>`:'<span class="t-sub">—</span>')}</td>
          <td class="num">${fmtN(s['PRICE MT'],2)}</td><td class="num" title="${(s._dutyRate*100).toFixed(1)}% ${s._product}">${fmtM(s._duty)}</td><td class="num">${fmtM(s._stwg)}</td>
          <td class="num t-strong">${fmtM(s._invoice)}</td>
          <td>${paid?'<span class="chip green">Paid</span>':'<span class="chip grey">Open</span>'}</td>
          <td class="t-sub">${esc(s['FINANCIER']||'—')}</td>`}));
     });
     t.append(bd);card.querySelector('.tbl-wrap').append(t);host.append(card);
+    card.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=e=>{e.stopPropagation();openContainers(b.dataset.cnt);});
   };
   draw();
   $('#shQ').oninput=e=>{shipF.q=e.target.value;draw();};
@@ -4503,7 +4896,7 @@ RENDER.credit=function(v){
     const card=el('div',{class:'card',style:'margin-bottom:16px'});
     card.innerHTML=`<div class="card-h"><h3>Open receivables</h3><div class="sp"></div><span class="chip amber">${fmtEur2(openSum)} open</span></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
     const t=el('table',{class:'tbl'});
-    t.innerHTML=`<thead><tr><th>Customer</th><th>Delivery Q</th><th class="num">Net t</th><th class="num">Price/t</th><th class="num">Amount</th><th>Terms</th><th>Delivery</th><th>Inv</th><th>Due</th><th>Status</th></tr></thead>`;
+    t.innerHTML=`<thead><tr><th>Customer</th><th>Delivery Q</th><th class="num">Net t</th><th class="num">Price/t</th><th class="num">Amount</th><th>Terms</th><th>Delivery</th><th>Inv</th><th>Due</th><th>Status</th><th></th></tr></thead>`;
     const bd=el('tbody');
     openRows.forEach(a=>{
       const od=parseDate(a['DUE DATE'])&&parseDate(a['DUE DATE'])<today();
@@ -4512,16 +4905,18 @@ RENDER.credit=function(v){
          <td class="num">${fmtT(a['NET TONNAGE'])}</td><td class="num">${fmtN(a.PRICE,2)}</td><td class="num t-strong">${fmtEur2(a._total)}</td>
          <td class="t-sub">${esc(a['PAYMENT TERM']||'—')}</td><td class="mono">${fmtDate(a['DELIVERY DATE'])}</td>
          <td class="mono t-sub">${esc(a['INV No.']||'—')}</td><td class="mono">${od?'<span class="chip amber" style="padding:1px 6px">'+fmtDate(a['DUE DATE'])+'</span>':fmtDate(a['DUE DATE'])}</td>
-         <td>${od?'<span class="chip amber">Overdue</span>':'<span class="chip grey">Open</span>'}</td>`}));
+         <td>${od?'<span class="chip amber">Overdue</span>':'<span class="chip grey">Open</span>'}</td>
+         <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-inv="${a.id}" title="Generate invoice PDF">${svg('receipt',13)}<span>Invoice</span></button></td>`}));
     });
     t.append(bd);card.querySelector('.tbl-wrap').append(t);
+    t.querySelectorAll('[data-inv]').forEach(b=>b.onclick=e=>{e.stopPropagation();openInvoice(b.dataset.inv);});
     if(!openRows.length)card.querySelector('.tbl-wrap').innerHTML=emptyBox('receipt','No open receivables','Everything is settled.');
     wrap.append(card);
     // SETTLED
     const pcard=el('div',{class:'card'});
     pcard.innerHTML=`<div class="card-h"><h3>Settled receivables</h3><div class="hint">payment performance = due date vs payment received</div><div class="sp"></div><span class="chip green">${fmtEur2(paidSum)} received</span></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
     const pt=el('table',{class:'tbl'});
-    pt.innerHTML=`<thead><tr><th>Customer</th><th>Inv</th><th class="num">Amount</th><th>Delivery</th><th>Due</th><th>Paid on</th><th>Performance</th></tr></thead>`;
+    pt.innerHTML=`<thead><tr><th>Customer</th><th>Inv</th><th class="num">Amount</th><th>Delivery</th><th>Due</th><th>Paid on</th><th>Performance</th><th></th></tr></thead>`;
     const pb=el('tbody');
     paidRows.forEach(a=>{
       const perf=arPerformance(a);
@@ -4529,9 +4924,11 @@ RENDER.credit=function(v){
         `<td class="t-strong">${esc(custShort(a.CUSTOMER))}</td><td class="mono t-sub">${esc(a['INV No.']||'—')}</td>
          <td class="num t-strong">${fmtEur2(a._total)}</td><td class="mono">${fmtDate(a['DELIVERY DATE'])}</td>
          <td class="mono">${fmtDate(a['DUE DATE'])}</td><td class="mono">${fmtDate(a['PAID DATE'])}</td>
-         <td>${perf.chip}</td>`}));
+         <td>${perf.chip}</td>
+         <td style="text-align:right"><button class="btn btn-ghost btn-sm" data-inv="${a.id}" title="Generate invoice PDF">${svg('receipt',13)}<span>Invoice</span></button></td>`}));
     });
     pt.append(pb);pcard.querySelector('.tbl-wrap').append(pt);
+    pt.querySelectorAll('[data-inv]').forEach(b=>b.onclick=e=>{e.stopPropagation();openInvoice(b.dataset.inv);});
     if(!paidRows.length)pcard.querySelector('.tbl-wrap').innerHTML=emptyBox('check','No settled invoices yet','Mark a receivable Paid to track performance here.');
     wrap.append(pcard);
     return wrap;
@@ -4678,7 +5075,7 @@ RENDER.lifecycle=function(v){
           <td>${relChip(l['Release Status'])}</td><td>${custChip(l['Customs Status'])}</td>
           <td class="mono">${fmtDate(l._delivery)}</td><td class="mono">${fmtDate(l._receivable)}</td>
           <td class="num">${l._finalPrice?fmtN(l._finalPrice,2):'—'}</td><td>${statusChip(l)}</td>
-          <td style="text-align:right;white-space:nowrap">${canEdit?`<button class="btn btn-ghost btn-sm" data-prog="${l.id}" title="Set progress">${svg('anchor',13)}</button> `:''}${priceBtn}</td>`}));});
+          <td style="text-align:right;white-space:nowrap">${canEdit?`<button class="btn btn-ghost btn-sm" data-prog="${l.id}" title="Set progress">${svg('anchor',13)}</button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation'])&&canEdit)?`<button class="btn btn-ghost btn-sm" data-pbs="${l.id}" title="Allocate PB numbers">${svg('box',13)}<span>${(Array.isArray(l.pbAlloc)&&l.pbAlloc.length)?fmtN(l.pbAlloc.length,0)+' PB':'PBs'}</span></button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation']))?`<button class="btn btn-ghost btn-sm" data-dsum="${l.id}" title="Delivery summary">${svg('truck',13)}</button> `:''}${priceBtn}</td>`}));});
       t.append(bd);card.querySelector('.tw-alloc').append(t);
       // matched receivables for this quota
       const ar=g.arRows;const twar=card.querySelector('.tw-ar');
@@ -4690,6 +5087,8 @@ RENDER.lifecycle=function(v){
       card.querySelectorAll('[data-price]').forEach(b=>b.onclick=()=>openPricing(b.dataset.price,sn));
       card.querySelectorAll('[data-prog]').forEach(b=>b.onclick=()=>openProgress(b.dataset.prog,sn));
       card.querySelectorAll('[data-alloc]').forEach(b=>b.onclick=()=>allocateBL(b.dataset.alloc,sn));
+      card.querySelectorAll('[data-pbs]').forEach(b=>b.onclick=()=>allocatePBs(b.dataset.pbs,sn));
+      card.querySelectorAll('[data-dsum]').forEach(b=>b.onclick=()=>openDeliverySummary(b.dataset.dsum,sn));
     });
   };
   if(lcCurrent&&sns.includes(lcCurrent))show(lcCurrent);
@@ -4816,6 +5215,31 @@ RENDER.admin=function(v){
   const bindQp=()=>{qc.querySelectorAll('[data-qpdel]').forEach(b=>b.onclick=()=>{Store.d.qpList.splice(+b.dataset.qpdel,1);Store.save();audit('QP removed');$('#qpList').innerHTML=qpItems();bindQp();});};
   bindQp();
   $('#qpAdd').onclick=()=>{const val=$('#qpNew').value.trim();if(!val)return;if(Store.d.qpList.includes(val)){toast('Already in the list','amber');return;}Store.d.qpList.push(val);Store.save();audit('QP added',val);$('#qpNew').value='';$('#qpList').innerHTML=qpItems();bindQp();toast('QP added','green');};
+
+  // Bank accounts (invoice banking)
+  const bc=el('div',{class:'card',style:'margin-top:16px'});
+  const bankRows=()=>(Store.d.bankAccounts||[]).map(b=>`<tr><td class="mono t-strong">${esc(b.accountNo)}</td><td>${esc(b.bankName)}</td><td class="mono t-sub">${esc(b.swift||'—')}</td><td class="t-sub">${esc(b.accountName||'—')}</td><td>${esc(b.currency||'EUR')}</td><td class="mono t-sub">${esc(b.iban||'—')}</td><td style="text-align:right"><button class="btn btn-ghost btn-sm" data-bkedit="${b.id}">${svg('edit',13)}</button></td></tr>`).join('');
+  bc.innerHTML=`<div class="card-h"><h3>Bank accounts</h3><div class="hint">used on final invoices — the invoice screen selects one by account number</div><div class="sp"></div><button class="btn btn-primary btn-sm" id="bkAdd">${svg('plus',14)}<span>Add account</span></button></div>
+    <div class="card-b flush"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Account No</th><th>Bank</th><th>SWIFT</th><th>Account name</th><th>Ccy</th><th>IBAN</th><th></th></tr></thead><tbody id="bkBody">${bankRows()||'<tr><td colspan="7"><div class="empty" style="padding:20px">No bank accounts yet.</div></td></tr>'}</tbody></table></div></div>`;
+  v.append(bc);
+  const bindBanks=()=>{bc.querySelectorAll('[data-bkedit]').forEach(b=>b.onclick=()=>editBank(b.dataset.bkedit));};
+  bindBanks();
+  $('#bkAdd').onclick=()=>editBank(null);
+
+  // Invoice boilerplate
+  const iv=Store.d.invoiceConfig||{};
+  const ivc=el('div',{class:'card',style:'margin-top:16px'});
+  ivc.innerHTML=`<div class="card-h"><h3>Invoice text & HS codes</h3><div class="hint">boilerplate printed on every final invoice PDF</div></div><div class="card-b">
+    <div class="form-grid">
+      <div class="fg"><label>HS code — billets</label><input class="inp" id="ivHsB" value="${esc(iv.hsBillets||'')}"></div>
+      <div class="fg"><label>HS code — wire rod</label><input class="inp" id="ivHsW" value="${esc(iv.hsWireRod||'')}"></div>
+    </div>
+    <div class="fg full" style="margin-top:10px"><label>Assignment clause <span class="t-sub" style="font-weight:400">({BANK} is replaced with the selected bank)</span></label><textarea class="inp" id="ivAssign" rows="3">${esc(iv.assignmentClause||'')}</textarea></div>
+    <div class="fg full" style="margin-top:10px"><label>VAT clause</label><textarea class="inp" id="ivVat" rows="3">${esc(iv.vatClause||'')}</textarea></div>
+    <div class="fg full" style="margin-top:10px"><label>Footer note</label><textarea class="inp" id="ivFoot" rows="2">${esc(iv.footNote||'')}</textarea></div>
+    <div style="margin-top:12px"><button class="btn btn-primary btn-sm" id="ivSave">Save invoice text</button></div></div>`;
+  v.append(ivc);
+  $('#ivSave').onclick=()=>{const c=Store.d.invoiceConfig;c.hsBillets=gv('ivHsB');c.hsWireRod=gv('ivHsW');c.assignmentClause=$('#ivAssign').value;c.vatClause=$('#ivVat').value;c.footNote=$('#ivFoot').value;Store.save();audit('invoice text updated');toast('Invoice text saved','green');};
 
   // audit
   const log=JSON.parse(localStorage.getItem(LS.audit)||'[]').slice(0,30);
@@ -5366,7 +5790,7 @@ function editContract(id){
   $('#mSave').onclick=()=>{
     const sn=gv('f_sn');if(!sn){toast('S-number required','amber');return;}
     const rec={'S Number':sn,Customer:gv('f_cust'),Product:gv('f_prod'),Spec:gv('f_spec'),'Service Port':gv('f_port'),Quota:gv('f_quota')||null,QP:gv('f_qp'),CCY:'EUR',Tonnage:gvn('f_ton'),Premium:gvn('f_prem'),'Payment Terms':gv('f_pt'),'P number':gv('f_pnum'),'BL Allocation':gv('f_bl')||null,'Release Status':gv('f_rel')||null,'Customs Status':gv('f_custs')||null};
-    if(id){Object.keys(rec).forEach(k=>c[k]=rec[k]);['Current ETA','Release Date','Delivery Date','Receivable Date'].forEach(k=>delete c[k]);audit('contract edited',sn);}
+    if(id){if(blKey(rec['BL Allocation'])!==blKey(c['BL Allocation']))c.pbAlloc=[];Object.keys(rec).forEach(k=>c[k]=rec[k]);['Current ETA','Release Date','Delivery Date','Receivable Date'].forEach(k=>delete c[k]);audit('contract edited',sn);}
     else{Store.d.contracts.push({id:uid('ct'),...rec,pricings:[]});audit('contract added',sn);}
     afterSave('Contract saved');
   };
@@ -5393,21 +5817,27 @@ function editAR(id){
       ${seln('Status','f_status',a.Status||'Open',['Open','Paid'])}
       <div class="fg" id="f_paidWrap" style="${(a.Status==='Paid')?'':'display:none'}"><label>Payment received date</label><input class="inp" id="f_paid" type="date" value="${esc(a['PAID DATE']||'')}"></div>
     </div><div class="divider"></div><div class="metric-row"><div class="metric"><div class="m-l">Total amount</div><div class="m-v" id="arTot">—</div></div><div class="metric" id="perfWrap" style="${(a.Status==='Paid')?'':'display:none'}"><div class="m-l">Performance</div><div class="m-v" id="arPerf" style="font-size:15px">—</div></div></div></div>
-    <div class="modal-f">${delBtn(canDel)}<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="mSave">${id?'Save changes':'Add receivable'}</button></div>`);
+    <div class="modal-f">${delBtn(canDel)}${id?`<button class="btn btn-ghost" id="mInv">${svg('receipt',14)}<span>Save & invoice</span></button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="mSave">${id?'Save changes':'Add receivable'}</button></div>`);
   const prev=()=>{const t=gvn('f_net'),p=gvn('f_price');$('#arTot').textContent=(t!=null&&p!=null)?fmtEur2(t*p):'—';
     const perf=arPerformance({'DUE DATE':gv('f_due'),'PAID DATE':gv('f_paid')});const pe=$('#arPerf');if(pe)pe.innerHTML=gv('f_status')==='Paid'?perf.chip:'—';};
   const toggle=()=>{const paid=gv('f_status')==='Paid';$('#f_paidWrap').style.display=paid?'':'none';$('#perfWrap').style.display=paid?'':'none';if(paid&&!gv('f_paid')){$('#f_paid').value=iso(new Date());}prev();};
   ['f_net','f_price','f_due','f_paid'].forEach(i=>$('#'+i).addEventListener('input',prev));
   $('#f_status').addEventListener('change',toggle);prev();
-  $('#mSave').onclick=()=>{
-    const cu=gv('f_cust');if(!cu){toast('Customer required','amber');return;}
+  const saveAR=(then)=>{
+    const cu=gv('f_cust');if(!cu){toast('Customer required','amber');return false;}
     const status=gv('f_status')||'Open';const paidDate=gv('f_paid')||null;
-    if(status==='Paid'&&!paidDate){toast('Enter the payment received date','amber');return;}
+    if(status==='Paid'&&!paidDate){toast('Enter the payment received date','amber');return false;}
     const rec={CUSTOMER:cu,'DELIVERY Q':gv('f_dq')||null,'NET TONNAGE':gvn('f_net'),PRICE:gvn('f_price'),PREMIUM:gvn('f_prem'),'PAYMENT TERM':gv('f_pt'),'DELIVERY DATE':gv('f_dd')||null,'INV No.':gv('f_inv'),'DUE DATE':gv('f_due')||null,Status:status,'PAID DATE':status==='Paid'?paidDate:null};
     rec['TOTAL AMOUNT']=(rec['NET TONNAGE']!=null&&rec.PRICE!=null)?rec['NET TONNAGE']*rec.PRICE:null;
-    if(id){Object.assign(a,rec);audit('AR '+(status==='Paid'?'settled':'edited'),rec['INV No.']||cu);}else{Store.d.ar.push({id:uid('ar'),...rec});audit('AR added',rec['INV No.']||cu);}
-    afterSave('Receivable saved');
+    let recId=id;
+    if(id){Object.assign(a,rec);audit('AR '+(status==='Paid'?'settled':'edited'),rec['INV No.']||cu);}
+    else{recId=uid('ar');Store.d.ar.push({id:recId,...rec});audit('AR added',rec['INV No.']||cu);}
+    Store.save();
+    if(then){then(recId);}else{afterSave('Receivable saved');}
+    return true;
   };
+  $('#mSave').onclick=()=>saveAR();
+  const inv=$('#mInv');if(inv)inv.onclick=()=>saveAR(rid=>{toast('Receivable saved','green');openInvoice(rid);});
   if(canDel)$('#mDel').onclick=()=>{if(confirm('Delete this receivable?')){Store.d.ar=Store.d.ar.filter(x=>x.id!==id);audit('AR deleted',a['INV No.']);afterSave('Receivable deleted');}};
 }
 
@@ -5439,6 +5869,33 @@ function editCustomer(id){
     afterSave('Customer saved');
   };
   if(canDel)$('#mDel').onclick=()=>{if(confirm('Delete this customer record?')){Store.d.credit=Store.d.credit.filter(x=>x.id!==id);audit('customer deleted',c['Short Name']);afterSave('Customer deleted');}};
+}
+
+/* ----- Bank account (admin, for invoices) ----- */
+function editBank(id){
+  if(!requirePerm('*','manage bank accounts'))return;
+  Store.d.bankAccounts=Store.d.bankAccounts||[];
+  const b=id?Store.d.bankAccounts.find(x=>x.id===id):{};
+  const canDel=!!id;
+  openModal(`<div class="modal-h">${svg('credit',19)}<h3>${id?'Edit bank account':'New bank account'}</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="form-grid">
+      ${fld('Account number','bk_no',b.accountNo)}
+      ${fld('Currency','bk_ccy',b.currency||'EUR')}
+      ${fld('Bank name','bk_bank',b.bankName)}
+      ${fld('SWIFT','bk_swift',b.swift)}
+      <div class="fg full"><label>Bank address</label><input class="inp" id="bk_addr" value="${esc(b.bankAddress||'')}"></div>
+      ${fld('Account name','bk_name',b.accountName)}
+      ${fld('IBAN','bk_iban',b.iban)}
+    </div></div>
+    <div class="modal-f">${canDel?`<button class="btn btn-danger btn-sm" id="mDel" style="margin-right:auto">${svg('trash',14)}<span>Delete</span></button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="mSave">${id?'Save changes':'Add account'}</button></div>`,{wide:true});
+  $('#mSave').onclick=()=>{
+    const no=gv('bk_no');if(!no){toast('Account number required','amber');return;}
+    if(Store.d.bankAccounts.some(x=>x.id!==id&&String(x.accountNo)===no)){toast('That account number already exists','amber');return;}
+    const rec={accountNo:no,currency:gv('bk_ccy')||'EUR',bankName:gv('bk_bank'),swift:gv('bk_swift'),bankAddress:gv('bk_addr'),accountName:gv('bk_name'),iban:gv('bk_iban')};
+    if(id){Object.assign(b,rec);audit('bank account edited',no);}else{Store.d.bankAccounts.push({id:uid('bk'),...rec});audit('bank account added',no);}
+    afterSave('Bank account saved');
+  };
+  if(canDel)$('#mDel').onclick=()=>{if(confirm('Delete this bank account?')){Store.d.bankAccounts=Store.d.bankAccounts.filter(x=>x.id!==id);audit('bank account deleted',b.accountNo);afterSave('Bank account deleted');}};
 }
 
 /* ----- User management (admin) ----- */
