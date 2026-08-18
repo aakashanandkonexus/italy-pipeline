@@ -178,6 +178,27 @@ a{color:var(--brand);text-decoration:none}
 
 /* tables */
 .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.inv-tbl{min-width:640px;border-collapse:separate;border-spacing:0}
+.inv-tbl th,.inv-tbl td{white-space:nowrap;padding:7px 12px}
+.inv-tbl thead th{font-weight:600;color:var(--muted);background:var(--surface-2);border-bottom:1px solid var(--border-2)}
+.inv-tbl .inv-stick{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;min-width:180px;box-shadow:1px 0 0 var(--border-2)}
+.inv-tbl thead .inv-stick{z-index:3;background:var(--surface-2)}
+.inv-tbl tr.inv-inc .inv-stick,.inv-tbl tr.inv-bal .inv-stick,.inv-tbl tr.inv-sale .inv-stick{font-weight:600}
+.inv-tbl tr.inv-inc{background:color-mix(in srgb,var(--green) 6%,transparent)}
+.inv-tbl tr.inv-inc .inv-stick{background:color-mix(in srgb,var(--green) 9%,var(--surface))}
+.inv-tbl td.inv-in{color:color-mix(in srgb,var(--green) 78%,var(--ink));font-variant-numeric:tabular-nums}
+.inv-tbl td.inv-sa{color:color-mix(in srgb,var(--amber) 80%,var(--ink));font-variant-numeric:tabular-nums}
+.inv-tbl tr.inv-cust td{font-size:12px;color:var(--muted)}
+.inv-tbl tr.inv-cust .inv-stick{padding-left:24px;font-weight:400;color:var(--ink-2,var(--ink))}
+.inv-tbl tr.inv-cust:hover td{background:color-mix(in srgb,var(--brand,var(--green)) 5%,transparent)}
+.inv-tbl tr.inv-bal{background:var(--surface-2);font-weight:600}
+.inv-tbl tr.inv-bal .inv-stick{background:var(--surface-2)}
+.inv-tbl tr.inv-bal td{border-top:1px solid var(--border-2);border-bottom:1px solid var(--border-2)}
+.inv-tbl .inv-click{cursor:pointer;border-bottom:1px dotted color-mix(in srgb,var(--green) 55%,transparent)}
+.inv-tbl .inv-click:hover{background:color-mix(in srgb,var(--green) 16%,transparent)}
+.inv-card{overflow:hidden}
+.lnk{color:var(--brand,#2f6fb0);cursor:pointer;border-bottom:1px dotted currentColor}
+.lnk:hover{opacity:.8}
 table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 table.tbl th{text-align:left;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0;white-space:nowrap;z-index:1}
 table.tbl td{padding:9px 12px;border-bottom:1px solid var(--border-2);vertical-align:middle;white-space:nowrap}
@@ -379,7 +400,7 @@ html[data-theme="dark"] .italy-map{opacity:.07}
 <div id="toast"></div>
 
 <script type="application/json" id="seed">
-{"shipments":{"headers":["PORT OF DELIVERY","PURCHASE NUMBER","QUOTA MONTH","DELIVERY MONTH","BL NUMBER","DIAMETER","SOB DATE","ETA","NO. OF CONTAINERS","NET WEIGHT","GROSS WEIGHT","BL STATUS","STWG REF","SHIPMENT STATUS","PRICE MT","CUSTOM DUTIES COST","CD DUE DATE","CD PAID STATUS","STWG COST","STWG DUE DATE","STWG PAID STATUS","INVOICE VALUE","INVOICE DUE DATE","INVOICE PAID STATUS"],"rows":[]},"steinweg":{"headers":["Port","Serving Countries","CY to FOT \n(€/t) min 25 ton-cntr","SHIPPING LINE COSTS **MIN 25 t/cntr","Cstm Clrnc (€/t) min 65 eur x doc","Radiometric control  (billet/rod)","CIF to FCA (min 25 tonx cntr)","WH Free days","WH Rental (€/t.day)","WH Rental covered€/t.day)"],"rows":[{"Port":"GENOA","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":13,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":37.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"LIVORNO","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":36.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"Naples + Storing at Salerno ","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":16,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":40.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"NAPLES","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":16,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":40.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"SALERNO","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 180 x cntr ","CIF to FCA (min 25 tonx cntr)":34.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"TRIESTE","Serving Countries":"Italy, Romania, Slovakia, R/o Balkan, Poland","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"eur 75 x cntr","CIF to FCA (min 25 tonx cntr)":30.45,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12}]},"credit":{"headers":["Short Name","Full Company Name","Best Served From","VAT CODE","Column1","Column2","Column3","MT / MONTH","Payment","Quota Overlap","Original Limit","Limit Requested","KRG Limit Status"],"rows":[{"Short Name":"ALEX SPA","Full Company Name":"ALEX S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00564050771","Column1":"ZONA INDUSTRIALE COMPARTO C SNC","Column2":"PISTICCI, Basilicata","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1750000,"KRG Limit Status":1750000},{"Short Name":"ALL.CO","Full Company Name":"ALL.CO SOCIETA' PER AZIONI","Best Served From":"Salerno","VAT CODE":"IT00198440505","Column1":"VIA ANTONIO MEUCCI 15","Column2":"PISA, Toscana","Column3":"ITALY","MT / MONTH":150,"Payment":"60EOM","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1000000},{"Short Name":"ALL.IT","Full Company Name":"ALLIT S.P.A.","Best Served From":"Salerno","VAT CODE":"IT02653240594","Column1":"SS dei Monti Lepini km 42 04018 Sezze","Column2":"Stazione (LT)","Column3":"ITALY","MT / MONTH":200,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":1280000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"ALUTITAN","Full Company Name":"ALUTITAN S.P.A.","Best Served From":"-","VAT CODE":"SM02240","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":100,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":650000,"Limit Requested":650000,"KRG Limit Status":650000},{"Short Name":"ANODALL","Full Company Name":"ANODALL EXTRUSION S.P.A.","Best Served From":"Genoa","VAT CODE":"IT03397980230","Column1":"VIA DEL LAVORO 1","Column2":"TREVENZUOLO, Veneto","Column3":"ITALY","MT / MONTH":300,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":2880000,"KRG Limit Status":350000},{"Short Name":"APS AROSIO","Full Company Name":"APS AROSIO EXTRUSION S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00187790316","Column1":"VIA ALESSANDRO VOLTA 1","Column2":"MARIANO DEL FRIULI, Friuli","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"BODEGA","Full Company Name":"BODEGA G. & C. S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00212760169","Column1":"PIAZZA GIUSEPPE MAZZINI 13","Column2":"LECCO, Lombardia","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Net","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"CERBONE","Full Company Name":"CERBONE S.P.A.","Best Served From":"Salerno","VAT CODE":"IT05581171211","Column1":"VIA UGO NIUTTA 36","Column2":"NAPOLI, nationalEntity.NA","Column3":"ITALY","MT / MONTH":100,"Payment":"60 EOM","Quota Overlap":3,"Original Limit":960000,"Limit Requested":960000,"KRG Limit Status":1500000},{"Short Name":"DE ANGELI","Full Company Name":"DE ANGELI PRODOTTI S.R.L.","Best Served From":"Trieste","VAT CODE":"IT03585010287","Column1":"VIALE DELL' INDUSTRIA 1","Column2":"BAGNOLI DI SOPRA, ","Column3":"ITALY","MT / MONTH":null,"Payment":null,"Quota Overlap":null,"Original Limit":1000000,"Limit Requested":1000000,"KRG Limit Status":2000000},{"Short Name":"ESTRAL","Full Company Name":"ESTRAL - S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00579550989","Column1":"VIA ARTIGIANALE 19","Column2":"MANERBIO, Lombardia","Column3":"ITALY","MT / MONTH":150,"Payment":"30 net","Quota Overlap":2,"Original Limit":960000,"Limit Requested":960000,"KRG Limit Status":1500000},{"Short Name":"ESTRUSIONE","Full Company Name":"ESTRUSIONE ROCCAFRANCA S.R.L.","Best Served From":"-","VAT CODE":"IT02168370985","Column1":"  ","Column2":"POZZILLI, Molise","Column3":"ITALY","MT / MONTH":150,"Payment":"30 net","Quota Overlap":2,"Original Limit":960000,"Limit Requested":500000,"KRG Limit Status":500000},{"Short Name":"ETA SPA","Full Company Name":"ESTRUSIONE TECNOLOGIE AVANZATE - SOCIETA' PER AZIONI IN SIGLA \"E.T.A. SPA\"","Best Served From":"Salerno","VAT CODE":"IT00337000947","Column1":"Industrial Complex","Column2":"86077 Pozzilli (IS)","Column3":"Italy","MT / MONTH":100,"Payment":" 90 NET","Quota Overlap":4,"Original Limit":1280000,"Limit Requested":1280000,"KRG Limit Status":640000},{"Short Name":"GASTALDELLO","Full Company Name":"GASTALDELLO SISTEMI S.P.A.","Best Served From":"Genoa","VAT CODE":"IT01934500230","Column1":"VIALE DELL' ARTIGIANATO 16","Column2":"POVEGLIANO VERONESE, Veneto","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"GEAL","Full Company Name":"GEAL S.P.A.","Best Served From":"-","VAT CODE":"IT00784090482","Column1":"VIA DELLA LORA 23","Column2":"BARBERINO DI MUGELLO, Toscana","Column3":"ITALY","MT / MONTH":75,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":500000,"Limit Requested":500000,"KRG Limit Status":500000},{"Short Name":"HTA","Full Company Name":"HIGH TECH ALUMINIUM SOCIETA' PER AZIONI IN BREVE HTA S.P.A.","Best Served From":"Livorno","VAT CODE":"IT01464580461","Column1":"ZONA INDUSTRIALE INDUSTRIALE - VIA BASS SNC","Column2":"PONTEDERA, Toscana","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Net","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"INDINVEST","Full Company Name":"INDINVEST LT S.R.L.","Best Served From":"Salerno","VAT CODE":"IT01420630590","Column1":"STRADA PROVINCIALE NINFINA II ","Column2":"CISTERNA DI LATINA, Lazio","Column3":"ITALY","MT / MONTH":250,"Payment":"45 EOM","Quota Overlap":3,"Original Limit":2400000,"Limit Requested":2400000,"KRG Limit Status":1500000},{"Short Name":"INTALS","Full Company Name":"INTALS S.P.A.","Best Served From":"Genoa","VAT CODE":"IT05860300150","Column1":"Via Enrico Schievano n. 7","Column2":"20143 Milano (MI)","Column3":"ITALY","MT / MONTH":250,"Payment":"45 EOM","Quota Overlap":3,"Original Limit":2400000,"Limit Requested":1000000,"KRG Limit Status":1000000},{"Short Name":"IRCE","Full Company Name":"IRCE S.P.A.","Best Served From":"Livorno","VAT CODE":"IT00707431201","Column1":"VIA LASIE 12/A","Column2":"IMOLA, Emilia-Romagna","Column3":"ITALY","MT / MONTH":44,"Payment":"30 EoM","Quota Overlap":0,"Original Limit":0,"Limit Requested":1000000,"KRG Limit Status":2000000},{"Short Name":"MV EXTRUSION","Full Company Name":"MV EXTRUSION S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00503900771","Column1":"ZONA PIP SNC","Column2":"BERNALDA, Basilicata","Column3":"ITALY","MT / MONTH":75,"Payment":"60 nett","Quota Overlap":3,"Original Limit":700000,"Limit Requested":1000000,"KRG Limit Status":1000000},{"Short Name":"NOVELLINI SRL","Full Company Name":"NOVELLINI INDUSTRIES - S.R.L.","Best Served From":"-","VAT CODE":"IT00690100201","Column1":"VIA MANTOVA 1023","Column2":"BORGO VIRGILIO, Lombardia","Column3":"ITALY","MT / MONTH":75,"Payment":"60 nett","Quota Overlap":2,"Original Limit":500000,"Limit Requested":2400000,"KRG Limit Status":0},{"Short Name":"PANDOLFO","Full Company Name":"PANDOLFO ALLUMINIO SPA","Best Served From":"Trieste","VAT CODE":"IT02236890287","Column1":"VIA DELLA PROVVIDENZA 143","Column2":"RUBANO, Veneto","Column3":"ITALY","MT / MONTH":100,"Payment":"30 Net","Quota Overlap":2,"Original Limit":640000,"Limit Requested":640000,"KRG Limit Status":3520000},{"Short Name":"PASTURI","Full Company Name":"PASTURI S.R.L.","Best Served From":"Genoa","VAT CODE":"IT02230470987","Column1":"VIA SAN GERVASIO 13/13 /A","Column2":"CIGOLE, Lombardia","Column3":"ITALY","MT / MONTH":100,"Payment":"30 Nett","Quota Overlap":2,"Original Limit":640000,"Limit Requested":1000000,"KRG Limit Status":1500000},{"Short Name":"PFA","Full Company Name":"PFA SRL","Best Served From":"Genoa","VAT CODE":"IT03343020131","Column1":"VIA AMEDEO MODIGLIANI 3","Column2":"CORTENOVA, Lombardia","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Nett","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"PROFILATI SPA","Full Company Name":"PROFILATI S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00642201206","Column1":"VIA PIETRO GALLIANI 135","Column2":"MEDICINA, Emilia-Romagna","Column3":"ITALY","MT / MONTH":300,"Payment":"60 nett","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2880000,"KRG Limit Status":3300000},{"Short Name":"SEPAL","Full Company Name":"SEPAL - SOCIETA' ESTRUSIONE PROFILATI ALLUMINIO - S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00311480172","Column1":"VIA CADUTI DEL LAVORO 1","Column2":"LOGRATO, Lombardia","Column3":"ITALY","MT / MONTH":300,"Payment":"60 eom","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2880000,"KRG Limit Status":3750000},{"Short Name":"STEMIN","Full Company Name":"STEMIN S.P.A.","Best Served From":"-","VAT CODE":"IT02681790164","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":300,"Payment":"60 eom","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2000000,"KRG Limit Status":1000000},{"Short Name":"TRAFILERIE ALLUMINIO ALEXIA SPA","Full Company Name":"TRAFILERIE ALLUMINIO ALEXIA S.P.A.","Best Served From":"Genoa","VAT CODE":"IT02860650163","Column1":"VIA ANDREA FANTONI 8/10","Column2":"BERGAMO, Lombardia","Column3":"ITALY","MT / MONTH":200,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1920000,"Limit Requested":2500000,"KRG Limit Status":2500000},{"Short Name":"TRAFILERIE EMILIANE SUD SPA","Full Company Name":"TRAFILERIE EMILIANE SUD S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00749360673","Column1":"PIAZZALE PIETRO GALLIANI ","Column2":"BASCIANO, Abruzzo","Column3":"ITALY","MT / MONTH":200,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1920000,"Limit Requested":1920000,"KRG Limit Status":1920000},{"Short Name":"TRATOS CAVI SPA","Full Company Name":"TRATOS CAVI -S.P.A.","Best Served From":"Livorno","VAT CODE":"IT00861640514","Column1":"VIA DELLO STADIO 2","Column2":"PIEVE SANTO STEFANO, Toscana","Column3":"ITALY","MT / MONTH":60,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":385000,"Limit Requested":1000000,"KRG Limit Status":700000},{"Short Name":"VIBA","Full Company Name":"VIBA S.P.A.","Best Served From":"Trieste","VAT CODE":"IT03190240170","Column1":"VIA ACHILLE GRANDI 11","Column2":"BRESCIA, Lombardia","Column3":"ITALY","MT / MONTH":100,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":640000,"Limit Requested":640000,"KRG Limit Status":1200000},{"Short Name":"LASA","Full Company Name":"LASA METALLI S.P.A.","Best Served From":"-","VAT CODE":"IT00934970369","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":"-","Payment":"-","Quota Overlap":"-","Original Limit":0,"Limit Requested":500000,"KRG Limit Status":500000}]},"ar":{"headers":["CUSTOMER","PREMIUM","DELIVERY Q","NET TONNAGE","PRICE","TOTAL AMOUNT","PAYMENT TERM","DELIVERY DATE","INV No.","DUE DATE"],"rows":[]},"payment_terms":[{"term":"Net 30 days from Delivery date","days":40},{"term":"Net 60 days from Delivery date","days":70},{"term":"Net 70 days from Delivery date","days":80},{"term":"Net 3 days from Delivery date","days":7},{"term":"30 days EoM from Delivery Date","days":55},{"term":"60 days EoM from Delivery Date","days":70}],"contracts":{"headers":["S Number","Customer","Product","Spec","Service Port","Quota","QP","CCY","Tonnage","BL Qty","Lots","Premium","Payment Terms","P number","Stock","BL Allocation","Current ETA","Release Date","Delivery Date","Receivable Date","Tentative Due","LME","FX","Final Price","Priced/ Not Priced","Priced Lots","Averaging Lots","Unpriced Lots","Unsold"],"rows":[]}}
+{"shipments":{"headers":["PORT OF DELIVERY","PURCHASE NUMBER","QUOTA MONTH","DELIVERY MONTH","BL NUMBER","DIAMETER","SOB DATE","ETA","NO. OF CONTAINERS","NET WEIGHT","GROSS WEIGHT","BL STATUS","STWG REF","SHIPMENT STATUS","PRICE MT","CUSTOM DUTIES COST","CD DUE DATE","CD PAID STATUS","STWG COST","STWG DUE DATE","STWG PAID STATUS","INVOICE VALUE","INVOICE DUE DATE","INVOICE PAID STATUS"],"rows":[]},"steinweg":{"headers":["Port","Serving Countries","CY to FOT \n(€/t) min 25 ton-cntr","SHIPPING LINE COSTS **MIN 25 t/cntr","Cstm Clrnc (€/t) min 65 eur x doc","Radiometric control  (billet/rod)","CIF to FCA (min 25 tonx cntr)","WH Free days","WH Rental (€/t.day)","WH Rental covered€/t.day)"],"rows":[{"Port":"GENOA","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":13,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":37.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"LIVORNO","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":36.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"Naples + Storing at Salerno ","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":16,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":40.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"NAPLES","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":16,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 230 x cntr ","CIF to FCA (min 25 tonx cntr)":40.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"SALERNO","Serving Countries":"Italy","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"Eur 180 x cntr ","CIF to FCA (min 25 tonx cntr)":34.65,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12},{"Port":"TRIESTE","Serving Countries":"Italy, Romania, Slovakia, R/o Balkan, Poland","CY to FOT \n(€/t) min 25 ton-cntr":12,"SHIPPING LINE COSTS **MIN 25 t/cntr":14.75,"Cstm Clrnc (€/t) min 65 eur x doc":0.7,"Radiometric control  (billet/rod)":"eur 75 x cntr","CIF to FCA (min 25 tonx cntr)":30.45,"WH Free days":14,"WH Rental (€/t.day)":0.1,"WH Rental covered€/t.day)":0.12}]},"credit":{"headers":["Short Name","Full Company Name","Best Served From","VAT CODE","Column1","Column2","Column3","MT / MONTH","Payment","Quota Overlap","Original Limit","Limit Requested","KRG Limit Status"],"rows":[{"Short Name":"ALEX SPA","Full Company Name":"ALEX S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00564050771","Column1":"ZONA INDUSTRIALE COMPARTO C SNC","Column2":"PISTICCI, Basilicata","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1750000,"KRG Limit Status":1750000},{"Short Name":"ALL.CO","Full Company Name":"ALL.CO SOCIETA' PER AZIONI","Best Served From":"Salerno","VAT CODE":"IT00198440505","Column1":"VIA ANTONIO MEUCCI 15","Column2":"PISA, Toscana","Column3":"ITALY","MT / MONTH":150,"Payment":"60EOM","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1000000},{"Short Name":"ALL.IT","Full Company Name":"ALLIT S.P.A.","Best Served From":"Salerno","VAT CODE":"IT02653240594","Column1":"SS dei Monti Lepini km 42 04018 Sezze","Column2":"Stazione (LT)","Column3":"ITALY","MT / MONTH":200,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":1280000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"ALUTITAN","Full Company Name":"ALUTITAN S.P.A.","Best Served From":"-","VAT CODE":"SM02240","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":100,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":650000,"Limit Requested":650000,"KRG Limit Status":650000},{"Short Name":"ANODALL","Full Company Name":"ANODALL EXTRUSION S.P.A.","Best Served From":"Genoa","VAT CODE":"IT03397980230","Column1":"VIA DEL LAVORO 1","Column2":"TREVENZUOLO, Veneto","Column3":"ITALY","MT / MONTH":300,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":2880000,"KRG Limit Status":350000},{"Short Name":"APS AROSIO","Full Company Name":"APS AROSIO EXTRUSION S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00187790316","Column1":"VIA ALESSANDRO VOLTA 1","Column2":"MARIANO DEL FRIULI, Friuli","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"BODEGA","Full Company Name":"BODEGA G. & C. S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00212760169","Column1":"PIAZZA GIUSEPPE MAZZINI 13","Column2":"LECCO, Lombardia","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Net","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"CERBONE","Full Company Name":"CERBONE S.P.A.","Best Served From":"Salerno","VAT CODE":"IT05581171211","Column1":"VIA UGO NIUTTA 36","Column2":"NAPOLI, nationalEntity.NA","Column3":"ITALY","MT / MONTH":100,"Payment":"60 EOM","Quota Overlap":3,"Original Limit":960000,"Limit Requested":960000,"KRG Limit Status":1500000},{"Short Name":"DE ANGELI","Full Company Name":"DE ANGELI PRODOTTI S.R.L.","Best Served From":"Trieste","VAT CODE":"IT03585010287","Column1":"VIALE DELL' INDUSTRIA 1","Column2":"BAGNOLI DI SOPRA, ","Column3":"ITALY","MT / MONTH":null,"Payment":null,"Quota Overlap":null,"Original Limit":1000000,"Limit Requested":1000000,"KRG Limit Status":2000000},{"Short Name":"ESTRAL","Full Company Name":"ESTRAL - S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00579550989","Column1":"VIA ARTIGIANALE 19","Column2":"MANERBIO, Lombardia","Column3":"ITALY","MT / MONTH":150,"Payment":"30 net","Quota Overlap":2,"Original Limit":960000,"Limit Requested":960000,"KRG Limit Status":1500000},{"Short Name":"ESTRUSIONE","Full Company Name":"ESTRUSIONE ROCCAFRANCA S.R.L.","Best Served From":"-","VAT CODE":"IT02168370985","Column1":"  ","Column2":"POZZILLI, Molise","Column3":"ITALY","MT / MONTH":150,"Payment":"30 net","Quota Overlap":2,"Original Limit":960000,"Limit Requested":500000,"KRG Limit Status":500000},{"Short Name":"ETA SPA","Full Company Name":"ESTRUSIONE TECNOLOGIE AVANZATE - SOCIETA' PER AZIONI IN SIGLA \"E.T.A. SPA\"","Best Served From":"Salerno","VAT CODE":"IT00337000947","Column1":"Industrial Complex","Column2":"86077 Pozzilli (IS)","Column3":"Italy","MT / MONTH":100,"Payment":" 90 NET","Quota Overlap":4,"Original Limit":1280000,"Limit Requested":1280000,"KRG Limit Status":640000},{"Short Name":"GASTALDELLO","Full Company Name":"GASTALDELLO SISTEMI S.P.A.","Best Served From":"Genoa","VAT CODE":"IT01934500230","Column1":"VIALE DELL' ARTIGIANATO 16","Column2":"POVEGLIANO VERONESE, Veneto","Column3":"ITALY","MT / MONTH":150,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1500000,"Limit Requested":1500000,"KRG Limit Status":1500000},{"Short Name":"GEAL","Full Company Name":"GEAL S.P.A.","Best Served From":"-","VAT CODE":"IT00784090482","Column1":"VIA DELLA LORA 23","Column2":"BARBERINO DI MUGELLO, Toscana","Column3":"ITALY","MT / MONTH":75,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":500000,"Limit Requested":500000,"KRG Limit Status":500000},{"Short Name":"HTA","Full Company Name":"HIGH TECH ALUMINIUM SOCIETA' PER AZIONI IN BREVE HTA S.P.A.","Best Served From":"-","VAT CODE":"IT01464580461","Column1":"ZONA INDUSTRIALE INDUSTRIALE - VIA BASS SNC","Column2":"PONTEDERA, Toscana","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Net","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"INDINVEST","Full Company Name":"INDINVEST LT S.R.L.","Best Served From":"Salerno","VAT CODE":"IT01420630590","Column1":"STRADA PROVINCIALE NINFINA II ","Column2":"CISTERNA DI LATINA, Lazio","Column3":"ITALY","MT / MONTH":250,"Payment":"45 EOM","Quota Overlap":3,"Original Limit":2400000,"Limit Requested":2400000,"KRG Limit Status":1500000},{"Short Name":"INTALS","Full Company Name":"INTALS S.P.A.","Best Served From":"Genoa","VAT CODE":"IT05860300150","Column1":"Via Enrico Schievano n. 7","Column2":"20143 Milano (MI)","Column3":"ITALY","MT / MONTH":250,"Payment":"45 EOM","Quota Overlap":3,"Original Limit":2400000,"Limit Requested":1000000,"KRG Limit Status":1000000},{"Short Name":"IRCE","Full Company Name":"IRCE S.P.A.","Best Served From":"Livorno","VAT CODE":"IT00707431201","Column1":"VIA LASIE 12/A","Column2":"IMOLA, Emilia-Romagna","Column3":"ITALY","MT / MONTH":44,"Payment":"30 EoM","Quota Overlap":0,"Original Limit":0,"Limit Requested":1000000,"KRG Limit Status":2000000},{"Short Name":"MV EXTRUSION","Full Company Name":"MV EXTRUSION S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00503900771","Column1":"ZONA PIP SNC","Column2":"BERNALDA, Basilicata","Column3":"ITALY","MT / MONTH":75,"Payment":"60 nett","Quota Overlap":3,"Original Limit":700000,"Limit Requested":1000000,"KRG Limit Status":1000000},{"Short Name":"NOVELLINI SRL","Full Company Name":"NOVELLINI INDUSTRIES - S.R.L.","Best Served From":"-","VAT CODE":"IT00690100201","Column1":"VIA MANTOVA 1023","Column2":"BORGO VIRGILIO, Lombardia","Column3":"ITALY","MT / MONTH":75,"Payment":"60 nett","Quota Overlap":2,"Original Limit":500000,"Limit Requested":2400000,"KRG Limit Status":0},{"Short Name":"PANDOLFO","Full Company Name":"PANDOLFO ALLUMINIO SPA","Best Served From":"-","VAT CODE":"IT02236890287","Column1":"VIA DELLA PROVVIDENZA 143","Column2":"RUBANO, Veneto","Column3":"ITALY","MT / MONTH":100,"Payment":"30 Net","Quota Overlap":2,"Original Limit":640000,"Limit Requested":640000,"KRG Limit Status":3520000},{"Short Name":"PASTURI","Full Company Name":"PASTURI S.R.L.","Best Served From":"Genoa","VAT CODE":"IT02230470987","Column1":"VIA SAN GERVASIO 13/13 /A","Column2":"CIGOLE, Lombardia","Column3":"ITALY","MT / MONTH":100,"Payment":"30 Nett","Quota Overlap":2,"Original Limit":640000,"Limit Requested":1000000,"KRG Limit Status":1500000},{"Short Name":"PFA","Full Company Name":"PFA SRL","Best Served From":"Genoa","VAT CODE":"IT03343020131","Column1":"VIA AMEDEO MODIGLIANI 3","Column2":"CORTENOVA, Lombardia","Column3":"ITALY","MT / MONTH":250,"Payment":"30 Nett","Quota Overlap":2,"Original Limit":1600000,"Limit Requested":1600000,"KRG Limit Status":1600000},{"Short Name":"PROFILATI SPA","Full Company Name":"PROFILATI S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00642201206","Column1":"VIA PIETRO GALLIANI 135","Column2":"MEDICINA, Emilia-Romagna","Column3":"ITALY","MT / MONTH":300,"Payment":"60 nett","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2880000,"KRG Limit Status":3300000},{"Short Name":"SEPAL","Full Company Name":"SEPAL - SOCIETA' ESTRUSIONE PROFILATI ALLUMINIO - S.P.A.","Best Served From":"Genoa","VAT CODE":"IT00311480172","Column1":"VIA CADUTI DEL LAVORO 1","Column2":"LOGRATO, Lombardia","Column3":"ITALY","MT / MONTH":300,"Payment":"60 eom","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2880000,"KRG Limit Status":3750000},{"Short Name":"STEMIN","Full Company Name":"STEMIN S.P.A.","Best Served From":"-","VAT CODE":"IT02681790164","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":300,"Payment":"60 eom","Quota Overlap":3,"Original Limit":2880000,"Limit Requested":2000000,"KRG Limit Status":1000000},{"Short Name":"TRAFILERIE ALLUMINIO ALEXIA SPA","Full Company Name":"TRAFILERIE ALLUMINIO ALEXIA S.P.A.","Best Served From":"Genoa","VAT CODE":"IT02860650163","Column1":"VIA ANDREA FANTONI 8/10","Column2":"BERGAMO, Lombardia","Column3":"ITALY","MT / MONTH":200,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1920000,"Limit Requested":2500000,"KRG Limit Status":2500000},{"Short Name":"TRAFILERIE EMILIANE SUD SPA","Full Company Name":"TRAFILERIE EMILIANE SUD S.P.A.","Best Served From":"Salerno","VAT CODE":"IT00749360673","Column1":"PIAZZALE PIETRO GALLIANI ","Column2":"BASCIANO, Abruzzo","Column3":"ITALY","MT / MONTH":200,"Payment":"60 nett","Quota Overlap":3,"Original Limit":1920000,"Limit Requested":1920000,"KRG Limit Status":1920000},{"Short Name":"TRATOS CAVI SPA","Full Company Name":"TRATOS CAVI -S.P.A.","Best Served From":"Livorno","VAT CODE":"IT00861640514","Column1":"VIA DELLO STADIO 2","Column2":"PIEVE SANTO STEFANO, Toscana","Column3":"ITALY","MT / MONTH":60,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":385000,"Limit Requested":1000000,"KRG Limit Status":700000},{"Short Name":"VIBA","Full Company Name":"VIBA S.P.A.","Best Served From":"-","VAT CODE":"IT03190240170","Column1":"VIA ACHILLE GRANDI 11","Column2":"BRESCIA, Lombardia","Column3":"ITALY","MT / MONTH":100,"Payment":"30 EOM","Quota Overlap":2,"Original Limit":640000,"Limit Requested":640000,"KRG Limit Status":1200000},{"Short Name":"LASA","Full Company Name":"LASA METALLI S.P.A.","Best Served From":"-","VAT CODE":"IT00934970369","Column1":null,"Column2":null,"Column3":null,"MT / MONTH":"-","Payment":"-","Quota Overlap":"-","Original Limit":0,"Limit Requested":500000,"KRG Limit Status":500000}]},"ar":{"headers":["CUSTOMER","PREMIUM","DELIVERY Q","NET TONNAGE","PRICE","TOTAL AMOUNT","PAYMENT TERM","DELIVERY DATE","INV No.","DUE DATE"],"rows":[]},"payment_terms":[{"term":"Net 30 days from Delivery date","days":40},{"term":"Net 60 days from Delivery date","days":70},{"term":"Net 70 days from Delivery date","days":80},{"term":"Net 3 days from Delivery date","days":7},{"term":"30 days EoM from Delivery Date","days":55},{"term":"60 days EoM from Delivery Date","days":70}],"contracts":{"headers":["S Number","Customer","Product","Spec","Service Port","Quota","QP","CCY","Tonnage","BL Qty","Lots","Premium","Payment Terms","P number","Stock","BL Allocation","Current ETA","Release Date","Delivery Date","Receivable Date","Tentative Due","LME","FX","Final Price","Priced/ Not Priced","Priced Lots","Averaging Lots","Unpriced Lots","Unsold"],"rows":[]}}
 </script>
 <script>
 "use strict";
@@ -536,6 +557,15 @@ const Store={
     // Finance datasets — additive namespace; never touches existing keys
     if(!this.d.finance||typeof this.d.finance!=='object'){this.d.finance={};this.save();}
     {let ch=false;['bankTx','payables','vatEntries','facilities','fxMarks'].forEach(k=>{if(!Array.isArray(this.d.finance[k])){this.d.finance[k]=[];ch=true;}});if(ch)this.save();}
+    // Port list fix: Livorno = IRCE + Tratos only · Trieste = De Angeli only
+    if(!this.d.portsFixedV1&&Array.isArray(this.d.credit)){
+      this.d.credit.forEach(c=>{const n=String(c['Short Name']||'').toUpperCase();const p=String(c['Best Served From']||'').trim().toLowerCase();
+        if(p==='livorno'&&!/IRCE|TRATOS/.test(n))c['Best Served From']='-';
+        if(p==='trieste'&&!/DE ANGELI/.test(n))c['Best Served From']='-';
+        if(/\bIRCE\b|TRATOS/.test(n))c['Best Served From']='Livorno';
+        if(/DE ANGELI/.test(n))c['Best Served From']='Trieste';});
+      this.d.portsFixedV1=true;this.save();
+    }
     if(!this.users){
       const salt=rndSalt();
       this.users=[{id:uid('u'),username:'admin',name:'Administrator',role:'admin',salt,hash:await hashPw('krg-admin',salt),mustChange:true,created:iso(new Date()),active:true}];
@@ -1078,6 +1108,41 @@ function seqCmp(a,b){
   return la<lb?-1:la>lb?1:na-nb;
 }
 function pbCount(s){return shipContainers(s).filter(c=>String(c.pb||'').trim()).length;}
+// Tonnage on a BL allocated to contracts, based on which PBs are allocated (falls back to contract tonnage when no PBs recorded)
+function blAllocatedNet(s){
+  const conts=shipContainers(s).filter(c=>String(c.pb||'').trim());
+  if(conts.length){const owners=pbOwners(s['BL NUMBER']);return conts.reduce((a,c)=>a+(owners[c.pb]?(num(c.net)||0):0),0);}
+  const net=num(s['NET WEIGHT'])||0;
+  const alloc=Store.d.contracts.filter(c=>blKey(c['BL Allocation'])===blKey(s['BL NUMBER'])).reduce((a,c)=>a+(num(c.Tonnage)||0),0);
+  return Math.min(net,alloc);
+}
+function blUnallocNet(s){const net=num(s['NET WEIGHT'])||0;return Math.max(0,net-blAllocatedNet(s));}
+// BL → PB allocation popup (Shipments tab)
+function blPBPopup(shipId){
+  const s=Store.d.shipments.find(x=>x.id===shipId);if(!s)return;
+  const conts=shipContainers(s).filter(c=>String(c.pb||'').trim()).sort((a,b)=>seqCmp(a.seq,b.seq));
+  const owners=pbOwners(s['BL NUMBER']);
+  const net=num(s['NET WEIGHT'])||0,alloc=blAllocatedNet(s),unalloc=blUnallocNet(s);
+  const rows=conts.map(c=>{const o=owners[c.pb];return {pb:c.pb,seq:c.seq,net:c.net,gross:c.gross,bundles:c.bundles,o};});
+  const body=rows.length?rows.map(r=>`<tr>
+      <td class="mono t-strong">${esc(r.pb)}</td><td class="num">${esc(r.seq==null?'':r.seq)}</td>
+      <td class="num">${fmtN(r.net,3)}</td><td class="num">${fmtN(r.gross,3)}</td><td class="num">${fmtN(r.bundles,0)}</td>
+      <td>${r.o?`<span class="chip green">${esc(r.o['S Number']||'—')}</span>`:'<span class="chip grey">Free</span>'}</td>
+      <td>${r.o?esc(custShort(r.o.Customer)):'<span class="t-sub">—</span>'}</td>
+      <td class="mono t-sub">${r.o?esc(fmtMY(r.o.Quota)):'—'}</td></tr>`).join('')
+    :`<tr><td colspan="8"><div class="empty" style="padding:22px">No PB numbers recorded on this BL yet. Add them from the container panel.</div></td></tr>`;
+  openModal(`<div class="modal-h">${svg('box',19)}<h3>${esc(s['BL NUMBER'])} — PB allocation</h3><div class="hint">${esc(s['PORT OF DELIVERY']||'')} · ${esc(specLabel(s.DIAMETER))} · ${rows.length} PB${rows.length===1?'':'s'}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="metric-row" style="margin-bottom:12px">
+        <div class="metric"><div class="m-l">Net weight</div><div class="m-v">${fmtN(net,3)} t</div></div>
+        <div class="metric"><div class="m-l">Allocated</div><div class="m-v" style="color:var(--green)">${fmtN(alloc,3)} t</div></div>
+        <div class="metric"><div class="m-l">Un-allocated</div><div class="m-v" style="color:${unalloc>0.01?'var(--amber)':'var(--muted)'}">${fmtN(unalloc,3)} t</div></div>
+      </div>
+      <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr><th>PB Number</th><th class="num">Dispatch</th><th class="num">Net t</th><th class="num">Gross t</th><th class="num">Bundles</th><th>S-Number</th><th>Customer</th><th>Delivery Q</th></tr></thead><tbody>${body}</tbody></table></div>
+    </div>
+    <div class="modal-f">${Auth.can('edit_shipment')?`<button class="btn btn-ghost" id="blpEdit" style="margin-right:auto">${svg('edit',14)}<span>Edit BL</span></button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
+  const eb=$('#blpEdit');if(eb)eb.onclick=()=>{closeModal();editShipment(s.id);};
+}
 // pb -> contract line (excluding one line) for all lines allocated to this BL
 function pbOwners(bl,excludeId){
   const m={};const k=blKey(bl);if(!k)return m;
@@ -1518,7 +1583,7 @@ RENDER.shipments=function(v){
     if(!rows.length){card.querySelector('.tbl-wrap').innerHTML=emptyBox('ship','No shipments match','Adjust filters or upload a BL.');host.append(card);return;}
     const t=el('table',{class:'tbl'});
     t.innerHTML=`<thead><tr><th>ETA</th><th>Tracking</th><th>BL Number</th><th>Steinweg Ref</th><th>Port</th><th>Purchase (Quota)</th><th>Diameter / Spec</th>
-      <th class="num">Net t</th><th class="num">Cntrs</th><th>PB / Containers</th><th class="num">Price/t</th><th class="num">Duty</th><th class="num">STWG</th><th class="num">Invoice</th><th>Inv status</th><th>Financier</th></tr></thead>`;
+      <th class="num">Net t</th><th class="num">Unalloc t</th><th class="num">Cntrs</th><th>PB / Containers</th><th class="num">Price/t</th><th class="num">Duty</th><th class="num">STWG</th><th class="num">Invoice</th><th>Inv status</th><th>Financier</th></tr></thead>`;
     const bd=el('tbody');
     rows.forEach(s=>{
       const paid=String(s['INVOICE PAID STATUS']||'').toLowerCase()==='paid';
@@ -1526,9 +1591,9 @@ RENDER.shipments=function(v){
       bd.append(el('tr',{class:'rowlink',onclick:()=>editShipment(s.id),html:
         `<td class="mono">${fmtDate(s.ETA)}</td>
          <td><span class="chip ${tk.chip}">${esc(tk.label)}</span></td>
-         <td class="mono t-strong">${esc(s['BL NUMBER'])}</td><td class="mono t-sub">${esc(s['STWG REF']||'—')}</td><td>${esc(s['PORT OF DELIVERY'])}</td>
+         <td class="mono t-strong"><a class="lnk" data-blpop="${s.id}">${esc(s['BL NUMBER'])}</a></td><td class="mono t-sub">${esc(s['STWG REF']||'—')}</td><td>${esc(s['PORT OF DELIVERY'])}</td>
          <td class="mono t-sub">${esc(s['PURCHASE NUMBER'])} <span class="chip grey" style="padding:1px 6px;margin-left:2px">${quotaLabel(s['QUOTA MONTH'])||'—'}</span></td><td class="t-sub">${esc(s.DIAMETER)}</td>
-         <td class="num">${fmtT(s['NET WEIGHT'])}</td><td class="num">${fmtN(Math.round(s._containers),0)}</td>
+         <td class="num">${fmtT(s['NET WEIGHT'])}</td><td class="num" style="color:${blUnallocNet(s)>0.01?'var(--amber)':'var(--muted)'}" title="${pbCount(s)?'net of PBs not allocated to a contract':'no PB data — whole BL treated as un-allocated'}">${fmtN(blUnallocNet(s),3)}</td><td class="num">${fmtN(Math.round(s._containers),0)}</td>
          <td>${Auth.can('edit_shipment')?`<button class="btn btn-ghost btn-sm" data-cnt="${s.id}">${svg('box',13)}<span>${pbCount(s)?fmtN(pbCount(s),0)+' PB':'Add'}</span></button>`:(pbCount(s)?`<span class="chip grey">${fmtN(pbCount(s),0)} PB</span>`:'<span class="t-sub">—</span>')}</td>
          <td class="num">${fmtN(s['PRICE MT'],2)}</td><td class="num" title="${(s._dutyRate*100).toFixed(1)}% ${s._product}">${fmtM(s._duty)}</td><td class="num">${fmtM(s._stwg)}</td>
          <td class="num t-strong">${fmtM(s._invoice)}</td>
@@ -1537,6 +1602,7 @@ RENDER.shipments=function(v){
     });
     t.append(bd);card.querySelector('.tbl-wrap').append(t);host.append(card);
     card.querySelectorAll('[data-cnt]').forEach(b=>b.onclick=e=>{e.stopPropagation();openContainers(b.dataset.cnt);});
+    card.querySelectorAll('[data-blpop]').forEach(a=>a.onclick=e=>{e.stopPropagation();blPBPopup(a.dataset.blpop);});
   };
   draw();
   $('#shQ').oninput=e=>{shipF.q=e.target.value;draw();};
@@ -2331,7 +2397,203 @@ function projectionModel(){
   contracts.forEach(c=>{const k=blKey(c['BL Allocation']);if(k&&map[k])map[k].allocs.push(c);});
   return map;
 }
+
+/* ============================================================
+   INVENTORY — rolling stock projection (pipe-sheet style)
+   Incoming = BLs by quota month · Sales = contracts by delivery
+   month · grouped by Port → Diameter, one row per customer.
+   ============================================================ */
+let projTab='forecast';
+let invPort=null;
+function invMonthKey(d){const dt=parseDate(d);return dt?(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')):null;}
+function invPortNorm(p){p=String(p||'').trim();return (p&&p!=='-')?titlePort(p):'Unassigned';}
+function inventoryModel(){
+  const ships=Store.d.shipments.map(deriveShipment);
+  const contracts=Store.d.contracts.map(deriveContract);
+  // rolling month window
+  const mset=new Set();
+  ships.forEach(s=>{const k=invMonthKey(s['QUOTA MONTH']||s.ETA);if(k)mset.add(k);});
+  contracts.forEach(c=>{const k=invMonthKey(c.Quota||c._delivery);if(k)mset.add(k);});
+  let months=[...mset].sort();
+  if(!months.length){const t=today();for(let i=0;i<12;i++){const d=new Date(t.getFullYear(),t.getMonth()+i,1);months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}}
+  if(months.length>15)months=months.slice(0,15);
+  const monthObjs=months.map(k=>({key:k,label:fmtMY(k+'-01')}));
+  // customers by home port
+  const custByPort={};
+  Store.d.credit.forEach(cr=>{const p=invPortNorm(cr['Best Served From']);(custByPort[p]=custByPort[p]||[]).push(custShort(cr['Short Name']));});
+  // ports & diameters present
+  const portSet=new Set(Object.keys(custByPort));
+  ships.forEach(s=>portSet.add(invPortNorm(s['PORT OF DELIVERY'])));
+  contracts.forEach(c=>portSet.add(invPortNorm(c['Service Port'])));
+  const ports=[...portSet].filter(p=>p&&p!=='Unassigned').sort();
+  if(portSet.has('Unassigned'))ports.push('Unassigned');
+  const diaSet=new Set();
+  ships.forEach(s=>diaSet.add(specLabel(s.DIAMETER)));
+  contracts.forEach(c=>diaSet.add(specLabel(c.Spec)));
+  ['7 Inch','8 Inch','9 Inch','10 Inch'].forEach(d=>diaSet.add(d));
+  const diameters=[...diaSet].filter(d=>d&&d!=='—').sort((a,b)=>(parseInt(a)||99)-(parseInt(b)||99));
+  // cube
+  const inc={},blsByCell={},salesByCust={},custSet={};
+  ships.forEach(s=>{const p=invPortNorm(s['PORT OF DELIVERY']);const dia=specLabel(s.DIAMETER);const mk=invMonthKey(s['QUOTA MONTH']||s.ETA);if(!mk)return;const key=p+'|'+dia+'|'+mk;inc[key]=(inc[key]||0)+(num(s['NET WEIGHT'])||0);(blsByCell[key]=blsByCell[key]||[]).push(s);});
+  contracts.forEach(c=>{const p=invPortNorm(c['Service Port']);const dia=specLabel(c.Spec);const mk=invMonthKey(c.Quota||c._delivery);if(!mk)return;const cust=custShort(c.Customer);const bkey=p+'|'+dia;const ck=bkey+'|'+cust;salesByCust[ck]=salesByCust[ck]||{};salesByCust[ck][mk]=(salesByCust[ck][mk]||0)+(num(c.Tonnage)||0);(custSet[bkey]=custSet[bkey]||new Set()).add(cust);});
+  return {months:monthObjs,ports,diameters,custByPort,inc,blsByCell,salesByCust,custSet};
+}
+function invBLPopup(port,dia,mk,label,bls){
+  const rows=bls.map(s=>{const net=num(s['NET WEIGHT'])||0;const al=blAllocatedNet(s);return {bl:s['BL NUMBER'],pn:s['PURCHASE NUMBER'],eta:s.ETA,net,al,uns:Math.max(0,net-al)};})
+    .sort((a,b)=>b.net-a.net);
+  const T=k=>rows.reduce((a,r)=>a+r[k],0);
+  openModal(`<div class="modal-h">${svg('ship',19)}<h3>${esc(port)} · ${esc(dia)} · ${esc(label)}</h3><div class="hint">${rows.length} BL${rows.length===1?'':'s'} · incoming ${fmtN(T('net'),3)} t</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="tbl-wrap" style="max-height:56vh;overflow:auto"><table class="tbl"><thead><tr><th>BL Number</th><th>Purchase</th><th>ETA</th><th class="num">Net t</th><th class="num">Allocated t</th><th class="num">Net unsold t</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr class="rowlink" data-bl="${esc(r.bl)}"><td class="mono t-strong">${esc(r.bl)}</td><td class="mono t-sub">${esc(r.pn||'—')}</td><td class="mono">${fmtDate(r.eta)}</td><td class="num">${fmtN(r.net,3)}</td><td class="num" style="color:var(--green)">${fmtN(r.al,3)}</td><td class="num" style="color:${r.uns>0.01?'var(--amber)':'var(--muted)'}">${fmtN(r.uns,3)}</td></tr>`).join('')}
+      <tr class="t-strong" style="border-top:2px solid var(--border-2)"><td colspan="3" style="text-align:right">Total</td><td class="num">${fmtN(T('net'),3)}</td><td class="num" style="color:var(--green)">${fmtN(T('al'),3)}</td><td class="num" style="color:var(--amber)">${fmtN(T('uns'),3)}</td></tr></tbody></table></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
+  document.querySelectorAll('#modal [data-bl]').forEach(tr=>tr.onclick=()=>{const s=Store.d.shipments.find(x=>String(x['BL NUMBER'])===tr.dataset.bl);if(s){closeModal();editShipment(s.id);}});
+}
+function invAllMonths(){
+  const keys=new Set();
+  Store.d.shipments.forEach(s=>{const k=invMonthKey(s['QUOTA MONTH']||s.ETA);if(k)keys.add(k);});
+  Store.d.contracts.forEach(c=>{const k=invMonthKey(c.Quota||c._delivery);if(k)keys.add(k);});
+  const t=today();const thisK=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0');
+  let arr=[...keys].sort();
+  const parse=k=>{const[y,m]=k.split('-').map(Number);return new Date(y,m-1,1);};
+  const startK=arr.length&&arr[0]<thisK?arr[0]:thisK;
+  const endBase=arr.length?parse(arr[arr.length-1]):parse(thisK);
+  const endD=new Date(endBase.getFullYear(),endBase.getMonth()+18,1);
+  const out=[];let cur=parse(startK);
+  while(cur<=endD){const k=cur.getFullYear()+'-'+String(cur.getMonth()+1).padStart(2,'0');out.push({key:k,label:fmtMY(k+'-01')});cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);}
+  return out;
+}
+function monthEndStock(fromKey,toKey){
+  const M=inventoryModel();
+  const inRange=k=>k>=fromKey&&k<=toKey;
+  const rows=[];let tIn=0,tSa=0,tCl=0;
+  M.ports.forEach(port=>M.diameters.forEach(dia=>{
+    const bkey=port+'|'+dia;
+    let inc=0,sal=0;
+    Object.keys(M.inc).forEach(key=>{if(key.startsWith(bkey+'|')){const mk=key.split('|')[2];if(inRange(mk))inc+=M.inc[key];}});
+    const custs=M.custSet[bkey]?[...M.custSet[bkey]]:[];
+    custs.forEach(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};Object.keys(sc).forEach(mk=>{if(inRange(mk))sal+=sc[mk];});});
+    if(inc||sal){rows.push({port,dia,inc,sal,close:inc-sal});tIn+=inc;tSa+=sal;tCl+=(inc-sal);}
+  }));
+  // incoming breakdown: P number / BL / PBs in the period
+  const seenBL={};const detail=[];
+  Object.keys(M.blsByCell).forEach(key=>{const mk=key.split('|')[2];if(!inRange(mk))return;M.blsByCell[key].forEach(s=>{if(seenBL[s.id])return;seenBL[s.id]=1;
+    const conts=shipContainers(s).filter(c=>String(c.pb||'').trim());const owners=pbOwners(s['BL NUMBER']);
+    detail.push({pn:s['PURCHASE NUMBER']||'',bl:s['BL NUMBER'],port:invPortNorm(s['PORT OF DELIVERY']),dia:specLabel(s.DIAMETER),quota:fmtMY((s['QUOTA MONTH']||s.ETA)),net:num(s['NET WEIGHT'])||0,
+      pbs:conts.map(c=>c.pb),allocPbs:conts.filter(c=>owners[c.pb]).map(c=>c.pb)});});});
+  detail.sort((a,b)=>String(a.pn).localeCompare(String(b.pn))||String(a.bl).localeCompare(String(b.bl)));
+  const body=rows.length?rows.map(r=>`<tr><td>${esc(r.port)}</td><td>${esc(r.dia)}</td><td class="num" style="color:var(--green)">${fmtN(r.inc,1)}</td><td class="num" style="color:var(--amber)">${r.sal?'-'+fmtN(r.sal,1):'0'}</td><td class="num t-strong">${fmtN(r.close,1)}</td></tr>`).join('')
+    +`<tr class="t-strong" style="border-top:2px solid var(--border-2)"><td colspan="2" style="text-align:right">Total</td><td class="num" style="color:var(--green)">${fmtN(tIn,1)}</td><td class="num" style="color:var(--amber)">-${fmtN(tSa,1)}</td><td class="num">${fmtN(tCl,1)}</td></tr>`
+    :`<tr><td colspan="5"><div class="empty" style="padding:24px">No movement in this period.</div></td></tr>`;
+  const detBody=detail.length?detail.map(d=>`<tr><td class="mono t-sub">${esc(d.pn||'—')}</td><td class="mono t-strong">${esc(d.bl)}</td><td>${esc(d.port)}</td><td class="t-sub">${esc(d.dia)}</td><td class="mono t-sub">${esc(d.quota)}</td><td class="num">${fmtN(d.net,1)}</td><td class="mono" style="white-space:normal;max-width:260px">${d.pbs.length?d.pbs.map(pb=>`<span class="chip ${d.allocPbs.includes(pb)?'green':'grey'}" style="margin:1px;padding:1px 6px">${esc(pb)}</span>`).join(' '):'<span class="t-sub">no PBs recorded</span>'}</td></tr>`).join('')
+    :`<tr><td colspan="7"><div class="empty" style="padding:20px">No incoming BLs in this period.</div></td></tr>`;
+  openModal(`<div class="modal-h">${svg('trend',19)}<h3>Month-end stock — ${esc(fmtMY(toKey+'-01'))}</h3><div class="hint">accumulated from ${esc(fmtMY(fromKey+'-01'))} through ${esc(fmtMY(toKey+'-01'))}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="tbl-wrap" style="max-height:34vh;overflow:auto"><table class="tbl"><thead><tr><th>Port</th><th>Diameter</th><th class="num">Incoming t</th><th class="num">Sales t</th><th class="num">Closing stock t</th></tr></thead><tbody>${body}</tbody></table></div>
+      <div class="hint" style="font-weight:600;color:var(--ink-2,var(--ink));margin:16px 0 8px">Incoming breakdown — P-number / BL / PB <span class="t-sub" style="font-weight:400">(green PB = allocated to a contract)</span></div>
+      <div class="tbl-wrap" style="max-height:34vh;overflow:auto"><table class="tbl"><thead><tr><th>P-Number</th><th>BL Number</th><th>Port</th><th>Diameter</th><th>Quota</th><th class="num">Net t</th><th>PB numbers</th></tr></thead><tbody>${detBody}</tbody></table></div>
+    </div>
+    <div class="modal-f">${Auth.can('export')?`<button class="btn btn-ghost" id="mesX" style="margin-right:auto">${svg('download',14)}<span>Export</span></button>`:''}<button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
+  const xb=$('#mesX');
+  if(xb)xb.onclick=async()=>{try{await ensureXLSX();}catch(e){toast('Could not load the export engine','amber');return;}
+    const wb=XLSX.utils.book_new();
+    const aoa=[['Month-end stock',fmtMY(toKey+'-01'),'from '+fmtMY(fromKey+'-01')],[],['Port','Diameter','Incoming t','Sales t','Closing stock t'],
+      ...rows.map(r=>[r.port,r.dia,r.inc,r.sal,r.close]),[],['Total','',tIn,tSa,tCl]];
+    const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:14},{wch:12},{wch:12},{wch:12},{wch:16}];
+    XLSX.utils.book_append_sheet(wb,ws,'Month-end stock');
+    const daoa=[['P-Number','BL Number','Port','Diameter','Quota','Net t','PB count','Allocated PBs','PB Numbers'],
+      ...detail.map(d=>[d.pn,d.bl,d.port,d.dia,d.quota,d.net,d.pbs.length,d.allocPbs.length,d.pbs.join(', ')])];
+    const dws=XLSX.utils.aoa_to_sheet(daoa);dws['!cols']=[{wch:12},{wch:16},{wch:12},{wch:12},{wch:12},{wch:10},{wch:10},{wch:12},{wch:40}];
+    XLSX.utils.book_append_sheet(wb,dws,'Incoming breakdown');
+    XLSX.writeFile(wb,'month-end-stock-'+toKey+'.xlsx');audit('month-end stock exported',toKey);toast('Exported','green');};
+}
+function projInventory(v){
+  const M=inventoryModel();
+  const mk=M.months;
+  // Month-end stock generator
+  const pm=invAllMonths();
+  const t=today();const thisK=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0');
+  const defFrom=pm[0]?pm[0].key:thisK;
+  const defTo=(pm.find(x=>x.key>thisK)||pm[pm.length-1]||{key:thisK}).key;
+  const bar=el('div',{class:'card',style:'margin-bottom:16px'});
+  bar.innerHTML=`<div class="card-b" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div class="fg" style="margin:0"><label>Historic period from</label><select class="inp" id="mesFrom">${pm.map(m=>`<option value="${m.key}" ${m.key===defFrom?'selected':''}>${esc(m.label)}</option>`).join('')}</select></div>
+    <div class="fg" style="margin:0"><label>Month-end (as of)</label><select class="inp" id="mesTo">${pm.map(m=>`<option value="${m.key}" ${m.key===defTo?'selected':''}>${esc(m.label)}</option>`).join('')}</select></div>
+    <button class="btn btn-primary btn-sm" id="mesGo">${svg('trend',14)}<span>Generate month-end stock</span></button>
+    <div class="hint" style="flex:1;min-width:200px">Projects closing stock at a chosen month using incoming &amp; sales over the selected period.</div></div>`;
+  v.append(bar);
+  $('#mesGo').onclick=()=>{const f=$('#mesFrom').value,tk=$('#mesTo').value;if(f>tk){toast('The “from” month must be on or before the as-of month','amber');return;}monthEndStock(f,tk);};
+
+  if(!mk.length){v.append(el('div',{html:emptyBox('trend','Nothing to project yet','Add BLs and contracts and the rolling inventory will build here.')}));return;}
+  // grand totals per month
+  const gIn={},gSa={};
+  M.ports.forEach(p=>M.diameters.forEach(dia=>{
+    const bkey=p+'|'+dia;
+    mk.forEach(m=>{gIn[m.key]=(gIn[m.key]||0)+(M.inc[bkey+'|'+m.key]||0);});
+    (M.custSet[bkey]?[...M.custSet[bkey]]:[]).forEach(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};mk.forEach(m=>{gSa[m.key]=(gSa[m.key]||0)+(sc[m.key]||0);});});
+  }));
+  const activeMonths=mk.filter(m=>gIn[m.key]||gSa[m.key]);
+  if(!activeMonths.length){v.append(el('div',{html:emptyBox('trend','No stock movement yet','Enter BLs (incoming) and contracts (sales) to populate the rolling view.')}));return;}
+  // which ports carry data
+  const portHas=port=>M.diameters.some(dia=>{const bkey=port+'|'+dia;const blockInc=activeMonths.some(m=>M.inc[bkey+'|'+m.key]);const custs=(M.custSet[bkey]?[...M.custSet[bkey]]:[]).filter(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};return activeMonths.some(m=>sc[m.key]);});return blockInc||custs.length;});
+  const portsWithData=M.ports.filter(portHas);
+  const opts=['Summary',...portsWithData];
+  if(!opts.includes(invPort))invPort=opts[0];
+  // port toggle (Inventory only)
+  const seg=el('div',{class:'toolbar'});
+  seg.innerHTML=`<div class="seg" id="invPortSeg">${opts.map(p=>`<button data-p="${esc(p)}" class="${invPort===p?'on':''}">${esc(p)}</button>`).join('')}</div>`;
+  v.append(seg);
+  const host=el('div');v.append(host);
+  const drawSummary=(hostEl)=>{
+    let gbal=0;
+    const totCard=el('div',{class:'card inv-card'});
+    totCard.innerHTML=`<div class="card-h">${svg('trend',17)}<h3>Rolling inventory — all ports &amp; sizes</h3><div class="hint">incoming from BLs (quota month) · sales from contracts (delivery month) · balance rolls forward</div></div>
+      <div class="card-b flush"><div class="tbl-wrap"><table class="tbl inv-tbl"><thead><tr><th class="inv-stick">Total (t)</th>${activeMonths.map(m=>`<th class="num">${esc(m.label)}</th>`).join('')}</tr></thead>
+      <tbody>
+        <tr class="inv-inc"><td class="inv-stick">Incoming</td>${activeMonths.map(m=>`<td class="num inv-in">${gIn[m.key]?fmtN(gIn[m.key],1):''}</td>`).join('')}</tr>
+        <tr class="inv-sale"><td class="inv-stick">Sales</td>${activeMonths.map(m=>`<td class="num inv-sa">${gSa[m.key]?'-'+fmtN(gSa[m.key],1):''}</td>`).join('')}</tr>
+        <tr class="inv-bal"><td class="inv-stick">Balance</td>${activeMonths.map(m=>{gbal+=(gIn[m.key]||0)-(gSa[m.key]||0);return `<td class="num">${fmtN(gbal,1)}</td>`;}).join('')}</tr>
+      </tbody></table></div></div>`;
+    hostEl.append(totCard);
+  };
+  const drawPort=(hostEl,port)=>{
+    const homeCusts=M.custByPort[port]||[];
+    let bodyRows='';
+    M.diameters.forEach(dia=>{
+      const bkey=port+'|'+dia;
+      const blockInc=activeMonths.some(m=>M.inc[bkey+'|'+m.key]);
+      const custs=(M.custSet[bkey]?[...M.custSet[bkey]]:[]).filter(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};return activeMonths.some(m=>sc[m.key]);}).sort();
+      if(!blockInc&&!custs.length)return;
+      bodyRows+=`<tr class="inv-inc"><td class="inv-stick">${esc(dia)} · Incoming</td>${activeMonths.map(m=>{const key=bkey+'|'+m.key;const val=M.inc[key]||0;const has=(M.blsByCell[key]||[]).length;return `<td class="num inv-in ${has?'inv-click':''}" ${has?`data-cell="${esc(key)}" data-label="${esc(m.label)}"`:''}>${val?fmtN(val,1):''}</td>`;}).join('')}</tr>`;
+      custs.forEach(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};
+        bodyRows+=`<tr class="inv-cust"><td class="inv-stick">${esc(c)}</td>${activeMonths.map(m=>`<td class="num ${sc[m.key]?'inv-sa':''}">${sc[m.key]?'-'+fmtN(sc[m.key],1):''}</td>`).join('')}</tr>`;});
+      let bal=0;
+      bodyRows+=`<tr class="inv-bal"><td class="inv-stick">${esc(dia)} · Balance</td>${activeMonths.map(m=>{const inV=M.inc[bkey+'|'+m.key]||0;const saV=custs.reduce((a,c)=>a+((M.salesByCust[bkey+'|'+c]||{})[m.key]||0),0);bal+=inV-saV;return `<td class="num">${fmtN(bal,1)}</td>`;}).join('')}</tr>`;
+    });
+    const card=el('div',{class:'card inv-card'});
+    card.innerHTML=`<div class="card-h">${svg('building',16)}<h3>${esc(port)}</h3><div class="hint">${homeCusts.length} customer${homeCusts.length===1?'':'s'} served from here</div></div>
+      <div class="card-b flush"><div class="tbl-wrap"><table class="tbl inv-tbl"><thead><tr><th class="inv-stick">${esc(port)} (t)</th>${activeMonths.map(m=>`<th class="num">${esc(m.label)}</th>`).join('')}</tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
+    hostEl.append(card);
+    card.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const key=td.dataset.cell;const[p,d,m]=key.split('|');invBLPopup(p,d,m,td.dataset.label,M.blsByCell[key]||[]);});
+  };
+  const render=()=>{host.innerHTML='';invPort==='Summary'?drawSummary(host):drawPort(host,invPort);};
+  render();
+  $$('#invPortSeg button').forEach(b=>b.onclick=()=>{invPort=b.dataset.p;$$('#invPortSeg button').forEach(x=>x.classList.toggle('on',x===b));render();});
+}
+
+
 RENDER.projections=function(v){
+  const tabs=[['forecast','Projections'],['inventory','Inventory']];
+  const seg=el('div',{class:'toolbar'});
+  seg.innerHTML=`<div class="seg" id="projSeg">${tabs.map(([k,l])=>`<button data-t="${k}" class="${projTab===k?'on':''}">${l}</button>`).join('')}</div>`;
+  v.append(seg);
+  const host=el('div');v.append(host);
+  const draw=()=>{$('#topActions').innerHTML='';host.innerHTML='';(projTab==='inventory'?projInventory:projForecast)(host);};
+  draw();
+  $$('#projSeg button').forEach(b=>b.onclick=()=>{projTab=b.dataset.t;$$('#projSeg button').forEach(x=>x.classList.toggle('on',x===b));draw();});
+};
+
+function projForecast(v){
   const map=projectionModel();
   const entries=Object.values(map);
   const allocated=entries.filter(e=>e.allocs.length).sort((a,b)=>String(a.s['PURCHASE NUMBER']).localeCompare(String(b.s['PURCHASE NUMBER']))||String(a.s['BL NUMBER']).localeCompare(String(b.s['BL NUMBER'])));
@@ -2380,7 +2642,7 @@ RENDER.projections=function(v){
   t2.append(b2);uc.querySelector('.tbl-wrap').append(t2);
   if(!unallocated.length)uc.querySelector('.tbl-wrap').innerHTML=emptyBox('check','Everything allocated','No unallocated BLs.');
   v.append(uc);
-};
+}
 
 /* ----- Allocation Overview grid ----- */
 function allocByBLMap(){const m={};Store.d.contracts.map(deriveContract).forEach(c=>{const k=blKey(c['BL Allocation']);if(k)(m[k]=m[k]||[]).push(c);});return m;}
@@ -3028,31 +3290,60 @@ RENDER.vat=function(v){
 };
 
 /* ---------- CONTROLLER ---------- */
-RENDER.margin=function(v){
-  if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('all'));
-  const f=FIN();
-  const extraByBL={};f.payables.forEach(p=>{const k=blKey(p.ref);if(k)extraByBL[k]=(extraByBL[k]||0)+(num(p.amount)||0);});
-  const allocByBL=allocByBLMap();
-  const rows=[];let tRev=0,tDuty=0,tStwg=0,tOther=0,tMar=0,tNet=0;
-  Store.d.shipments.map(deriveShipment).forEach(s=>{
-    const net=num(s['NET WEIGHT']);const cs=allocByBL[blKey(s['BL NUMBER'])]||[];
-    const cust=cs[0]?custShort(cs[0].Customer):'';
-    const rev=s._invoice;const duty=s._duty||0,stwg=s._stwg||0,other=extraByBL[blKey(s['BL NUMBER'])]||0;
-    const margin=(rev!=null)?rev-duty-stwg-other:null;
-    if(rev!=null){tRev+=rev;tMar+=margin;}
-    tDuty+=duty;tStwg+=stwg;tOther+=other;tNet+=(net||0);
-    rows.push({bl:s['BL NUMBER'],cust,prod:s._product,net,rev,duty,stwg,other,margin,perT:(margin!=null&&net)?margin/net:null,pct:(margin!=null&&rev)?margin/rev*100:null});
+// Konexus agency fee ($/MT) by end sales price/MT bracket
+function agencyFeeMT(price){const p=num(price);if(p==null)return null;
+  if(p<2401)return 17;if(p<=2600)return 18;if(p<=2800)return 19;if(p<=3000)return 20;if(p<=3200)return 21;if(p<=3400)return 22;if(p<=3600)return 23;return 24;}
+const VICTORIA_MT=7; // USD per MT sold
+function marginRows(){
+  // AR lookup for invoice no + price, by customer+delivery quota
+  const arIdx={};Store.d.ar.map(deriveAR).forEach(a=>{const k=custKey(a.CUSTOMER)+'|'+fmtMY(a['DELIVERY Q']);arIdx[k]=arIdx[k]||a;});
+  const rows=[];
+  Store.d.contracts.map(deriveContract).forEach(c=>{
+    const ton=num(c.Tonnage);if(!c.Customer||!ton)return;
+    const ar=arIdx[custKey(c.Customer)+'|'+fmtMY(c.Quota)];
+    let price=c._finalPrice;
+    if(price==null&&ar){price=num(ar.PRICE)??((num(ar['TOTAL AMOUNT'])!=null&&num(ar['NET TONNAGE']))?num(ar['TOTAL AMOUNT'])/num(ar['NET TONNAGE']):null);}
+    const fee=agencyFeeMT(price);
+    const agency=fee!=null?fee*ton:null;
+    const victoria=VICTORIA_MT*ton;
+    const total=agency!=null?agency+victoria:null; // both paid to Konexus; Victoria is separate, not netted off
+    rows.push({dm:fmtMY(c.Quota),inv:(ar&&ar['INV No.'])||c['Prov Inv No']||'',cust:custShort(c.Customer),sn:c['S Number']||'',spec:specLabel(c.Spec),ton,price:price!=null?price:null,fee,agency,victoria,total});
   });
+  rows.sort((a,b)=>String(a.dm).localeCompare(String(b.dm))||String(a.cust).localeCompare(String(b.cust)));
+  return rows;
+}
+RENDER.margin=function(v){
+  const rows=marginRows();
+  if(Auth.can('export'))topBtn('Export','download','export',()=>exportMargin(rows));
+  const usd=x=>x==null?'':'$'+fmtN(x,0);
+  const tTon=rows.reduce((a,r)=>a+(r.ton||0),0);
+  const tAg=rows.reduce((a,r)=>a+(r.agency||0),0);
+  const tVic=rows.reduce((a,r)=>a+(r.victoria||0),0);
+  const tTot=rows.reduce((a,r)=>a+(r.total||0),0);
+  const priced=rows.filter(r=>r.fee!=null).length;
   v.insertAdjacentHTML('beforeend',finKpiRow([
-    ['Revenue (invoiced)',fmtM(tRev),'var(--green)'],
-    ['Landed costs',fmtM(tDuty+tStwg+tOther),'var(--amber)'],
-    ['Gross margin',fmtM(tMar)],
-    ['Blended €/t',tNet?fmtN(tMar/tNet,2):'—']
+    ['Tonnage sold',fmtN(tTon,1)+' t'],
+    ['Agency income',usd(tAg),'var(--green)'],
+    ['Victoria fees (recon)',usd(tVic)],
+    ['Total to Konexus',usd(tTot),'var(--green)']
   ]));
-  const cols=[{h:'BL',k:'bl',mono:1,strong:1},{h:'Customer',k:'cust'},{h:'Product',k:'prod'},{h:'Net t',k:'net',num:1},{h:'Revenue',k:'rev',num:1},{h:'Duty',k:'duty',num:1},{h:'STWG',k:'stwg',num:1},{h:'Other',k:'other',num:1},{h:'Margin',k:'margin',num:1,strong:1},{h:'€/t',k:'perT',num:1},{h:'Margin %',k:'pct',num:1}];
-  const disp=rows.sort((a,b)=>(b.margin||-9e15)-(a.margin||-9e15)).map(r=>({bl:esc(r.bl),cust:esc(r.cust||''),prod:esc(r.prod),net:r.net!=null?fmtN(r.net,3):'',rev:r.rev!=null?fmtM(r.rev):'',duty:fmtM(r.duty),stwg:fmtM(r.stwg),other:r.other?fmtM(r.other):'',margin:r.margin!=null?fmtM(r.margin):'',perT:r.perT!=null?fmtN(r.perT,2):'',pct:r.pct!=null?fmtN(r.pct,1)+'%':''}));
-  v.insertAdjacentHTML('beforeend',finCard('Margin by delivery (BL)','revenue = invoice value · costs = duty + Steinweg + any uploaded supplier costs matched by BL',finTable(cols,disp,{bl:'Total',rev:fmtM(tRev),duty:fmtM(tDuty),stwg:fmtM(tStwg),other:fmtM(tOther),margin:fmtM(tMar)})));
+  v.insertAdjacentHTML('beforeend',`<div class="callout grey" style="margin-bottom:16px">${svg('scale',16)}<div>Konexus earns a fixed agency fee per MT set by the end sales price (17–24 $/MT). Victoria fees of $${VICTORIA_MT}/MT sold are paid to Konexus <b>separately</b> — shown here for reconciliation, not deducted from the agency fee. ${priced<rows.length?`${rows.length-priced} line(s) are unpriced, so their fee can\u2019t be set yet.`:''}</div></div>`);
+  const cols=[{h:'Delivery',k:'dm',mono:1},{h:'Invoice',k:'inv',mono:1},{h:'Customer',k:'cust',strong:1},{h:'Contract',k:'sn',mono:1},{h:'Spec',k:'spec'},{h:'Tonnage t',k:'ton',num:1},{h:'Sales /MT',k:'price',num:1},{h:'Agency $/MT',k:'fee',num:1},{h:'Agency income $',k:'agency',num:1},{h:'Victoria $ (recon)',k:'victoria',num:1},{h:'Total to Konexus $',k:'total',num:1,strong:1}];
+  const disp=rows.map(r=>({dm:esc(r.dm),inv:esc(r.inv||'—'),cust:esc(r.cust),sn:esc(r.sn||'—'),spec:esc(r.spec),ton:fmtN(r.ton,1),price:r.price!=null?fmtN(r.price,2):EM,fee:r.fee!=null?'$'+r.fee:EM,agency:usd(r.agency),victoria:usd(r.victoria),total:usd(r.total)}));
+  v.insertAdjacentHTML('beforeend',finCard('Agency margin by delivery','one row per sold contract line · fee bracket driven by the end sales price/MT · Victoria fee tracked separately',
+    finTable(cols,disp,{dm:'Total',ton:fmtN(tTon,1),agency:usd(tAg),victoria:usd(tVic),total:usd(tTot)})));
 };
+async function exportMargin(rows){
+  try{await ensureXLSX();}catch(e){toast('Could not load the export engine (needs an internet connection)','amber');return;}
+  const head=['Delivery month','Invoice no','Customer','Contract','Spec','Tonnage (t)','Sales price /MT','Agency fee $/MT','Agency income $','Victoria fee $ (recon)','Total to Konexus $'];
+  const body=rows.map(r=>[r.dm,r.inv,r.cust,r.sn,r.spec,r.ton,r.price,r.fee,r.agency,r.victoria,r.total]);
+  const tot=['Total','','','','',rows.reduce((a,r)=>a+(r.ton||0),0),'','',rows.reduce((a,r)=>a+(r.agency||0),0),rows.reduce((a,r)=>a+(r.victoria||0),0),rows.reduce((a,r)=>a+(r.total||0),0)];
+  const ws=XLSX.utils.aoa_to_sheet([head,...body,[],tot]);
+  ws['!cols']=head.map(h=>({wch:Math.max(h.length+2,12)}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Agency Margin');
+  XLSX.writeFile(wb,'agency-margin-'+iso(new Date())+'.xlsx');
+  audit('margin exported',rows.length+' lines');toast('Margin exported','green');
+}
 
 RENDER.aged_ar=function(v){
   if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('ar'));
