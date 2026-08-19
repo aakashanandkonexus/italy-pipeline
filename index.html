@@ -188,6 +188,7 @@ a{color:var(--brand);text-decoration:none}
 .inv-tbl tr.inv-inc .inv-stick{background:color-mix(in srgb,var(--green) 9%,var(--surface))}
 .inv-tbl td.inv-in{color:color-mix(in srgb,var(--green) 78%,var(--ink));font-variant-numeric:tabular-nums}
 .inv-tbl td.inv-sa{color:color-mix(in srgb,var(--amber) 80%,var(--ink));font-variant-numeric:tabular-nums}
+.inv-tbl td.inv-tent{color:color-mix(in srgb,var(--amber) 92%,var(--ink));background:color-mix(in srgb,var(--amber) 12%,transparent);font-variant-numeric:tabular-nums}
 .inv-tbl tr.inv-cust td{font-size:12px;color:var(--muted)}
 .inv-tbl tr.inv-cust .inv-stick{padding-left:24px;font-weight:400;color:var(--ink-2,var(--ink))}
 .inv-tbl tr.inv-cust:hover td{background:color-mix(in srgb,var(--brand,var(--green)) 5%,transparent)}
@@ -535,6 +536,8 @@ const Store={
     if(!this.d.calcTerms){this.d.calcTerms=[{term:'Net 30 days from delivery date',days:30},{term:'Net 60 days from delivery date',days:60},{term:'Net 90 days from delivery date',days:90},{term:'30 days EoM from delivery date',days:'EOM30'},{term:'60 days EoM from delivery date',days:'EOM60'}];this.save();}
     if(this.d.config&&this.d.config.dutyRateBillet==null){this.d.config.dutyRateBillet=this.d.config.dutyRate??0.06;this.d.config.dutyRateWireRod=0.075;this.save();}
     if(!Array.isArray(this.d.qpList)){this.d.qpList=['Average of M-1','Average of M-0','Unknown LME CSP (M-0)'];this.save();}
+    if(!Array.isArray(this.d.purchases)){this.d.purchases=[];this.save();}
+    if(!Array.isArray(this.d.ap)){this.d.ap=[];this.save();}
     if(!Array.isArray(this.d.bankAccounts)){
       this.d.bankAccounts=[{id:uid('bk'),accountNo:'92338517',bankName:'HSBC UK Bank PLC',bankAddress:'60 Queen Victoria Street, London, EC4N, 4TR',swift:'HBUKGB4B',accountName:'KONEXUS RESOURCES GROUP LIMITED',currency:'EUR',iban:'GB74HBUK40127692338517'}];
       this.save();
@@ -779,8 +782,9 @@ const VIEWS=[
   {id:'dashboard', label:'Dashboard',          icon:'dashboard', group:'Overview'},
   {id:'pipeline',  label:'Allocation Overview', icon:'grid',      group:'Overview'},
   {id:'shipments', label:'Shipments & BLs',    icon:'ship',      group:'Pipeline', count:()=>Store.d.shipments.length},
+  {id:'purchases', label:'Purchase Contracts', icon:'contract',  group:'Pipeline', count:()=>Store.d.purchases?.length||0},
   {id:'contracts', label:'Sales Contracts',    icon:'contract',  group:'Pipeline', count:()=>new Set(Store.d.contracts.map(c=>c['S Number'])).size},
-  {id:'credit',    label:'Credit & Receivables',icon:'credit',   group:'Pipeline'},
+  {id:'credit',    label:'Credit and Trade Ledger',icon:'credit',   group:'Pipeline'},
   {id:'projections',label:'Projections',        icon:'trend',     group:'Pipeline'},
   {id:'lifecycle', label:'Contract Lifecycle', icon:'lifecycle', group:'Search'},
   {id:'customer',  label:'Customer 360',        icon:'building',  group:'Search'},
@@ -941,12 +945,12 @@ function openKpiDetail(kind){
   if(kind==='contracts'){
     title='Contracted tonnage';ic='scale';
     const C=a.C.slice().sort((x,y)=>(num(y.Tonnage)||0)-(num(x.Tonnage)||0));
-    bodyHTML=wrap(`<table class="tbl"><thead><tr><th>S-Number</th><th>Customer</th><th>Product</th><th>Quota</th><th class="num">Tonnage</th><th>Status</th></tr></thead><tbody>${C.map(c=>`<tr class="rowlink" onclick="closeModal();lifecycleLookup('${esc(c['S Number'])}')"><td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(custShort(c.Customer))}</td><td>${esc(c.Product)}</td><td class="mono t-sub">${quotaLabel(c.Quota)}</td><td class="num">${fmtN(c.Tonnage)}</td><td>${statusChip(c)}</td></tr>`).join('')}</tbody></table>`);
+    bodyHTML=wrap(`<table class="tbl"><thead><tr><th>S-Number</th><th>Customer</th><th>Product</th><th>Quota</th><th class="num">Tonnage</th><th>Status</th></tr></thead><tbody>${C.map(c=>`<tr class="rowlink" onclick="closeModal();lifecycleLookup('${esc(c['S Number'])}','${esc(c.Quota?fmtMY(c.Quota):'')}')"><td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(custShort(c.Customer))}</td><td>${esc(c.Product)}</td><td class="mono t-sub">${quotaLabel(c.Quota)}</td><td class="num">${fmtN(c.Tonnage)}</td><td>${statusChip(c)}</td></tr>`).join('')}</tbody></table>`);
   } else if(kind==='pricing'){
     title='Pricing coverage';ic='tag';
     const L=a.lots;const seg=[['Priced',L.priced,'green'],['Averaging',L.avg,'blue'],['Open / unpriced',L.unpriced,'amber']];
     bodyHTML=`<div class="metric-row" style="margin-bottom:16px">${seg.map(([n,val,c])=>`<div class="metric"><div class="m-l">${n}</div><div class="m-v"><span class="chip ${c}" style="font-size:13px">${fmtN(val,0)} lots</span></div></div>`).join('')}</div>`+
-      wrap(`<table class="tbl"><thead><tr><th>S-Number</th><th>Customer</th><th class="num">Priced t</th><th class="num">Open t</th><th class="num">Final €/t</th><th>Status</th></tr></thead><tbody>${a.C.filter(c=>!c._isAvg).sort((x,y)=>y._openTon-x._openTon).map(c=>`<tr class="rowlink" onclick="closeModal();lifecycleLookup('${esc(c['S Number'])}')"><td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(custShort(c.Customer))}</td><td class="num">${fmtN(c._pricedTon,1)}</td><td class="num" style="color:${c._openTon>0?'var(--amber)':'inherit'}">${fmtN(c._openTon,1)}</td><td class="num">${c._finalPrice?fmtN(c._finalPrice,0):'—'}</td><td>${statusChip(c)}</td></tr>`).join('')}</tbody></table>`);
+      wrap(`<table class="tbl"><thead><tr><th>S-Number</th><th>Customer</th><th class="num">Priced t</th><th class="num">Open t</th><th class="num">Final €/t</th><th>Status</th></tr></thead><tbody>${a.C.filter(c=>!c._isAvg).sort((x,y)=>y._openTon-x._openTon).map(c=>`<tr class="rowlink" onclick="closeModal();lifecycleLookup('${esc(c['S Number'])}','${esc(c.Quota?fmtMY(c.Quota):'')}')"><td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(custShort(c.Customer))}</td><td class="num">${fmtN(c._pricedTon,1)}</td><td class="num" style="color:${c._openTon>0?'var(--amber)':'inherit'}">${fmtN(c._openTon,1)}</td><td class="num">${c._finalPrice?fmtN(c._finalPrice,0):'—'}</td><td>${statusChip(c)}</td></tr>`).join('')}</tbody></table>`);
   } else if(kind==='ar'){
     title='Receivables outstanding';ic='receipt';
     const open=Store.d.ar.map(deriveAR).filter(x=>(x.Status||'Open')!=='Paid').sort((p,q)=>(parseDate(p['DUE DATE'])||0)-(parseDate(q['DUE DATE'])||0));
@@ -964,7 +968,18 @@ function openKpiDetail(kind){
     <div class="modal-b" style="padding:18px">${bodyHTML}</div>
     <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
 }
-function statusChip(c){return c._isAvg?'<span class="chip blue">Averaging</span>':c._status==='P'?'<span class="chip green">Priced</span>':c._status==='PP'?'<span class="chip amber">Part-priced</span>':'<span class="chip grey">Open</span>';}
+function statusChip(c){return c._isAvg?'<span class="chip blue">Averaging</span>':c._status==='P'?'<span class="chip green">Priced</span>':c._status==='PP'?'<span class="chip amber">Part-priced</span>':'<span class="chip grey">Not priced</span>';}
+// lifecycle status: a line is Closed once all allocated PBs have been invoiced
+function ctInvoices(c){return Array.isArray(c.invoices)?c.invoices:[];}
+function ctInvoicedPBs(c){const s=new Set();ctInvoices(c).forEach(i=>(i.pbs||[]).forEach(pb=>s.add(pb)));return s;}
+function ctInvoiceablePBs(c){const inv=ctInvoicedPBs(c);const d=c.pbDelivery||{};return ctAllocPBs(c).filter(pb=>d[pb]&&!inv.has(pb));}
+function ctIsClosed(c){const pbs=ctAllocPBs(c);if(pbs.length){const inv=ctInvoicedPBs(c);return pbs.every(pb=>inv.has(pb));}return c.arRaised===true;}
+function ctIsPartInvoiced(c){const inv=ctInvoicedPBs(c);return inv.size>0&&!ctIsClosed(c);}
+function lifeChip(c){return ctIsClosed(c)?'<span class="chip green">Closed</span>':ctIsPartInvoiced(c)?'<span class="chip amber">Part-invoiced</span>':'<span class="chip grey">Open</span>';}
+// per-PB delivery: all allocated PBs must have a delivery date before a receivable can be raised
+function ctAllocPBs(c){return Array.isArray(c.pbAlloc)?c.pbAlloc:[];}
+function ctPBsDelivered(c){const pbs=ctAllocPBs(c);if(!pbs.length)return false;const d=c.pbDelivery||{};return pbs.every(pb=>d[pb]);}
+function ctAllocNet(c){const sh=shipmentByBL(c['BL Allocation']);if(!sh)return null;const byPb={};shipContainers(sh).forEach(x=>{if(String(x.pb||'').trim())byPb[x.pb]=x;});return ctAllocPBs(c).reduce((a,pb)=>a+(byPb[pb]?(num(byPb[pb].net)||0):0),0);}
 
 function openPricing(lineId,sn){
   if(!requirePerm('edit_contract','price contracts'))return;
@@ -1213,35 +1228,40 @@ function allocatePBs(lineId,sn){
   if(!cnts.length){toast('No PB numbers recorded on '+bl+' yet — add container details on the Shipments page first','amber');return;}
   const owners=pbOwners(bl,l.id);
   let sel=new Set(Array.isArray(l.pbAlloc)?l.pbAlloc:[]);
+  let deliv=Object.assign({},l.pbDelivery||{});
   openModal(`<div class="modal-h">${svg('box',19)}<h3>Allocate PB numbers — ${esc(sn)}</h3><div class="hint">${esc(bl)} · ${fmtMY(l.Quota)} · ${esc(l.Customer)}</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
     <div class="modal-b">
-      <div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:36px"></th><th>PB number</th><th class="num">Dispatch</th><th class="num">Bundles</th><th class="num">Net (t)</th><th class="num">Gross (t)</th><th>Allocated to</th></tr></thead><tbody id="pbBody"></tbody></table></div>
+      <div class="callout grey" style="margin-bottom:10px">${svg('truck',16)}<div>Tick the PBs for this delivery and set a <b>delivery date per PB</b>. A receivable can be raised once every allocated PB has a delivery date.</div></div>
+      <div class="tbl-wrap" style="max-height:48vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:36px"></th><th>PB number</th><th class="num">Dispatch</th><th class="num">Net (t)</th><th>Delivery date</th><th>Allocated to</th></tr></thead><tbody id="pbBody"></tbody></table></div>
       <div class="metric-row" style="margin-top:12px" id="pbTot"></div>
     </div>
     <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="pbSave">Save allocation</button></div>`,{wide:true,noFocus:true});
   const body=$('#pbBody');
   const totals=()=>{
     const picked=cnts.filter(c=>sel.has(c.pb));
-    const n=picked.reduce((a,c)=>a+(num(c.net)||0),0),b=picked.reduce((a,c)=>a+(num(c.bundles)||0),0);
+    const n=picked.reduce((a,c)=>a+(num(c.net)||0),0);
+    const withDates=picked.filter(c=>deliv[c.pb]).length;
     $('#pbTot').innerHTML=`<div class="metric"><div class="m-l">Selected</div><div class="m-v">${picked.length} / ${cnts.length}</div></div>
       <div class="metric"><div class="m-l">Net allocated</div><div class="m-v">${fmtN(n,3)} t</div></div>
-      <div class="metric"><div class="m-l">Bundles</div><div class="m-v">${fmtN(b,0)}</div></div>
+      <div class="metric"><div class="m-l">Delivery dates set</div><div class="m-v" style="color:${picked.length&&withDates===picked.length?'var(--green)':'var(--amber)'}">${withDates} / ${picked.length}</div></div>
       <div class="metric"><div class="m-l">Contract tonnage</div><div class="m-v" style="${num(l.Tonnage)!=null&&Math.abs(n-num(l.Tonnage))>0.5?'color:var(--amber)':''}">${fmtN(l.Tonnage)} t</div></div>`;
   };
   const draw=()=>{
     body.innerHTML=cnts.map(c=>{const own=owners[c.pb];const taken=!!own;const on=sel.has(c.pb);
-      return `<tr class="${taken?'':'rowlink'}" data-pb="${esc(c.pb)}" style="${taken?'opacity:.55':''}">
+      return `<tr data-pb="${esc(c.pb)}" style="${taken?'opacity:.55':''}">
         <td><input type="checkbox" ${on?'checked':''} ${taken?'disabled':''} data-cb="${esc(c.pb)}"></td>
-        <td class="mono t-strong">${esc(c.pb)}</td><td class="num">${esc(c.seq==null?'':c.seq)}</td><td class="num">${fmtN(c.bundles,0)}</td>
-        <td class="num">${fmtT(c.net)}</td><td class="num">${fmtT(c.gross)}</td>
+        <td class="mono t-strong">${esc(c.pb)}</td><td class="num">${esc(c.seq==null?'':c.seq)}</td>
+        <td class="num">${fmtT(c.net)}</td>
+        <td><input type="date" class="inp" style="padding:4px 6px;font-size:12px" data-dd="${esc(c.pb)}" value="${esc(deliv[c.pb]||'')}" ${(on&&!taken)?'':'disabled'}></td>
         <td>${taken?`<span class="chip amber" title="Already allocated">${esc(own['S Number'])} · ${esc(custShort(own.Customer||''))}</span>`:on?'<span class="chip green">this delivery</span>':'<span class="chip grey">free</span>'}</td></tr>`;}).join('');
     body.querySelectorAll('[data-cb]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.cb):sel.delete(cb.dataset.cb);draw();});
-    body.querySelectorAll('tr.rowlink').forEach(r=>r.onclick=e=>{if(e.target.tagName==='INPUT')return;const pb=r.dataset.pb;sel.has(pb)?sel.delete(pb):sel.add(pb);draw();});
+    body.querySelectorAll('[data-dd]').forEach(inp=>inp.onchange=()=>{const pb=inp.dataset.dd;if(inp.value)deliv[pb]=inp.value;else delete deliv[pb];totals();});
     totals();
   };
   draw();
   $('#pbSave').onclick=()=>{
     l.pbAlloc=cnts.map(c=>c.pb).filter(pb=>sel.has(pb));
+    const nd={};l.pbAlloc.forEach(pb=>{if(deliv[pb])nd[pb]=deliv[pb];});l.pbDelivery=nd;
     audit('PBs allocated',sn+' · '+l.pbAlloc.length+' PBs on '+bl);
     afterSave('PB allocation saved');
   };
@@ -1291,6 +1311,7 @@ function openDeliverySummary(lineId,sn){
       :emptyBox('box','No PBs allocated','Allocate PB numbers to this delivery first — the summary is built from them.')}
     </div>
     <div class="modal-f">${rows.length&&Auth.can('export')?`<button class="btn btn-ghost" id="ds_xl" style="margin-right:auto">${svg('download',15)}<span>Export to Excel</span></button>`:''}
+      ${rows.length?`<button class="btn btn-ghost" id="ds_rel">${svg('contract',15)}<span>Release request</span></button>`:''}
       <button class="btn btn-ghost" onclick="closeModal()">Close</button>${canEdit?`<button class="btn btn-primary" id="ds_save">Save details</button>`:''}</div>`,{wide:true,noFocus:true});
   const persist=()=>{
     l['Inco Term']=gv('ds_inco')||null;
@@ -1318,9 +1339,68 @@ function openDeliverySummary(lineId,sn){
     XLSX.writeFile(wb,'delivery-'+String(sn).replace(/[^\w-]/g,'')+'-'+String(l['BL Allocation']||'').trim().replace(/[^\w-]/g,'')+'-'+iso(new Date())+'.xlsx');
     audit('delivery summary exported',sn);toast('Delivery summary exported','green');
   };
+  const rel=$('#ds_rel');
+  if(rel)rel.onclick=async()=>{if(canEdit)persist();await generateReleaseRequest(l,sn);};
 }
 /* ---------- Final invoice from a receivable (PDF) ---------- */
 async function ensureJsPDF(){if(window.jspdf&&window.jspdf.jsPDF)return;await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');}
+/* ---------- Release request to the financing bank (PDF on KRG letterhead) ---------- */
+async function generateReleaseRequest(l,sn){
+  try{await ensureJsPDF();}catch(e){toast('Could not load the PDF engine (needs an internet connection)','amber');return;}
+  const rows=deliverySummaryRows(l);
+  if(!rows.length){toast('Allocate PB numbers to this delivery first','amber');return;}
+  const sh=shipmentByBL(l['BL Allocation'])||{};
+  const port=titlePort(l['Service Port']||sh['PORT OF DELIVERY']||'');
+  const wh='C. Steinweg GMT'+(port?', '+port:'');
+  const bls=[...new Set(rows.map(r=>r['BL Number']).filter(Boolean))];
+  const netTot=rows.reduce((a,r)=>a+(num(r['Net Weight'])||0),0);
+  const grossTot=rows.reduce((a,r)=>a+(num(r['Gross Weight'])||0),0);
+  const bundleTot=rows.reduce((a,r)=>a+(num(r['Bundle Qty'])||0),0);
+  const ic=Store.d.invoiceConfig||{};
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+  const W=210,M=18;let y=15;const ink=[30,36,46],grey=[110,118,130],line=[176,182,190];
+  const setF=(sz,st='normal',col=ink)=>{doc.setFont('helvetica',st);doc.setFontSize(sz);doc.setTextColor(...col);};
+  const para=(txt,x,yy,w,sz,st,col,lh)=>{setF(sz,st,col||ink);const lines=doc.splitTextToSize(txt,w);doc.text(lines,x,yy);return yy+lines.length*(lh||sz*0.5);};
+  // letterhead logo
+  try{doc.addImage(KRG_LOGO,'PNG',M,y,46,16.1);}catch(e){setF(16,'bold',[30,52,92]);doc.text('KRG',M,y+8);}
+  y+=22;
+  setF(13,'bold',ink);doc.text('RELEASE REQUEST',M,y);y+=8;
+  // TO block
+  setF(9,'bold',ink);doc.text('TO:',M,y);
+  setF(9,'normal',ink);doc.text('HSBC UK Bank Plc',M+16,y);y+=4.6;
+  setF(8.5,'normal',grey);doc.text('2nd Floor, Landmark, St Peters Square, 1 Oxford Street, Manchester, M1 4PB',M+16,y);y+=4.4;
+  doc.text('Attn: CTF Team',M+16,y);y+=6;
+  setF(9,'bold',ink);doc.text('CC:',M,y);
+  setF(9,'normal',ink);doc.text('KONEXUS RESOURCES GROUP LIMITED',M+16,y);y+=4.6;
+  setF(8.5,'normal',grey);doc.text('14 Brook\u2019s Mews, London, W1K 4DG, United Kingdom',M+16,y);y+=4.4;
+  doc.text('Attn: Ms. Anar Artioli',M+16,y);y+=4.4;
+  doc.text('ops@konexusresources.com',M+16,y);y+=7;
+  const dt=new Date();const dstr=dt.getDate()+' '+dt.toLocaleString('en-GB',{month:'long'})+' '+dt.getFullYear();
+  setF(9,'normal',ink);doc.text('Date: '+dstr,M,y);y+=4.6;doc.text('HSBC Ref: ',M,y);y+=8;
+  setF(9,'normal',ink);doc.text('Dear,',M,y);y+=6;
+  const bodyTxt='For the material mentioned in the schedule below which has been stored at '+wh+' I/We hereby request the Bank to give your instructions to '+wh+' to release the material in favour of Konexus Resources Group Limited under Trust Receipt shared along with this request so that we can give further instructions to the warehouse.';
+  y=para(bodyTxt,M,y,W-2*M,9,'normal',ink,4.4)+4;
+  setF(9,'bold',ink);doc.text('Cargo Detailed:',M,y);y+=5;
+  // schedule table
+  const cols=[['PB Number',34],['BL Number',40],['Size',26],['Net (t)',24],['Gross (t)',24],['Bundles',18]];
+  let x=M;setF(8,'bold',grey);doc.setFillColor(244,246,248);doc.rect(M,y-4,W-2*M,6,'F');
+  cols.forEach(c=>{doc.text(c[0],x+1.5,y);x+=c[1];});y+=2.5;doc.setDrawColor(...line);doc.line(M,y,W-M,y);y+=4;
+  setF(8,'normal',ink);
+  rows.forEach(r=>{if(y>250){doc.addPage();y=20;}x=M;
+    const cells=[r['PB Number']||'',r['BL Number']||'',l.Spec||r['Size']||'',num(r['Net Weight'])!=null?fmtN(r['Net Weight'],3):'',num(r['Gross Weight'])!=null?fmtN(r['Gross Weight'],3):'',num(r['Bundle Qty'])!=null?fmtN(r['Bundle Qty'],0):''];
+    cells.forEach((cv,i)=>{doc.text(String(cv),x+1.5,y);x+=cols[i][1];});y+=4.4;});
+  doc.setDrawColor(...line);doc.line(M,y,W-M,y);y+=4;x=M;setF(8,'bold',ink);
+  const tcells=['Total','','',fmtN(netTot,3),fmtN(grossTot,3),fmtN(bundleTot,0)];tcells.forEach((cv,i)=>{doc.text(String(cv),x+1.5,y);x+=cols[i][1];});y+=7;
+  setF(9,'normal',ink);doc.text('BL Number: '+(bls.join(', ')||'—'),M,y);y+=7;
+  y=para('This Trust Receipt shall be construed and take effect in all respects according to English law.',M,y,W-2*M,9,'normal',ink,4.4)+10;
+  setF(9,'normal',ink);doc.text('Authorised Signatory',M,y);y+=8;doc.text('_______________________',M,y);
+  // footer
+  setF(7.5,'normal',grey);doc.text('Konexus Resources Group Limited | 14 Brooks Mews, London, W1K 4DG, United Kingdom. | www.konexusresources.com',W/2,289,{align:'center'});
+  const fname='Release Request - HSBC - '+fmtMY(l.Quota)+' - '+fmtN(netTot,1)+' MT.pdf';
+  doc.save(fname);
+  audit('release request generated',sn+' · '+fmtMY(l.Quota)+' · '+fmtN(netTot,1)+' MT');
+  toast('Release request generated','green');
+}
 function buyerInfo(custName){
   const dir=customerDirectory();let e=dir[custKey(custName)];let c=e?.credit;
   if(!c||!c['VAT CODE']){
@@ -1443,6 +1523,13 @@ function openInvoice(arId){
     audit('invoice PDF exported',gv('iv_no')||a.CUSTOMER);toast('Invoice PDF exported','green');
   };
 }
+/* full descriptive payment term for the invoice, e.g. "Net cash net 60 days from date of delivery" */
+function fullPaymentTerm(t){
+  if(t==null)return '';const s=String(t).trim();if(!s||s==='-')return s==='-'?'':s;
+  const m=s.match(/(\d+)/);if(!m)return s;const n=m[1];
+  const eom=/eom|e\.?o\.?m|end of month/i.test(s);
+  return 'Net cash net '+n+' days'+(eom?' end of month':'')+' from date of delivery';
+}
 function buildInvoicePDF(d){
   const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
   const W=210,M=14;let y=16;const ink=[30,36,46],grey=[110,118,130],line=[176,182,190];
@@ -1461,7 +1548,7 @@ function buildInvoicePDF(d){
   const rowR=(k,v)=>{setF(8.5,'bold',ink);doc.text(k,R,ry);doc.text(':',R+34,ry);setF(8.5,'normal',ink);const t=doc.splitTextToSize(String(v||''),38);doc.text(t,R+37,ry);ry+=Math.max(5,t.length*4.4);};
   rowL('Buyer',d.buyer.name);
   const addr=d.buyer.address||[];rowL('Address',addr[0]||'');addr.slice(1).forEach(l=>{setF(8.5,'normal',ink);doc.text(l,L+34,ly);ly+=4.6;});
-  ly+=1;rowL('VAT Number',d.buyer.vat);ly+=1;rowL('Payment Term',d.paymentTerm);
+  ly+=1;rowL('VAT Number',d.buyer.vat);ly+=1;rowL('Payment Term',fullPaymentTerm(d.paymentTerm));
   rowR('Invoice no.',d.invNo);rowR('Invoice date',fmtDate(d.invDate));rowR('Contract Number',d.contract);
   rowR('Delivery',fmtDate(d.delivery));rowR('Inco Term',d.inco);rowR('Payment Date',fmtDate(d.paymentDate));
   y=Math.max(ly,ry)+4;
@@ -1613,7 +1700,7 @@ RENDER.shipments=function(v){
 };
 
 /* ---------- G3. SALES CONTRACTS ---------- */
-let ctF={q:'',product:'',spec:'',port:'',quota:'',customer:''};
+let ctF={q:'',product:'',spec:'',port:'',quota:'',customer:'',life:''};
 function productSummary(rows,product,color){
   const r=rows.filter(c=>c.Product===product);
   const ton=r.reduce((s,c)=>s+(num(c.Tonnage)||0),0);
@@ -1640,6 +1727,206 @@ function productSummary(rows,product,color){
       </div>
     </div>`});
 }
+
+/* ============================================================
+   PURCHASE CONTRACTS — agency buy-side. A master contract buys
+   X tonnes of a diameter for a port each month; BLs arrive ~90
+   days (3 months) later and are assigned to the contract.
+   ============================================================ */
+function purchaseArrivalKey(pc){const dt=parseDate(pc['Purchase Quota']);if(!dt)return null;const d=new Date(dt.getFullYear(),dt.getMonth()+3,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function pcLines(pc){if(Array.isArray(pc.lines)&&pc.lines.length)return pc.lines;if(pc.Port||pc.Spec||pc.Tonnage!=null)return [{port:pc.Port||'',spec:pc.Spec||'',tonnage:num(pc.Tonnage)}];return [];}
+function pcPlannedTotal(pc){return pcLines(pc).reduce((a,ln)=>a+(num(ln.tonnage)||0),0);}
+function pcBLs(pc){const ids=new Set(Array.isArray(pc.blIds)?pc.blIds:[]);return Store.d.shipments.filter(s=>ids.has(s.id));}
+function pcAllocatedNet(pc){return pcBLs(pc).reduce((a,s)=>a+(num(s['NET WEIGHT'])||0),0);}
+function pcFull(pc){const planned=pcPlannedTotal(pc);const alloc=pcAllocatedNet(pc);return planned>0?alloc>=planned*0.95:pcBLs(pc).length>0;} // within -5%
+function pcDisplayTon(pc){const alloc=pcAllocatedNet(pc);return pcBLs(pc).length?alloc:pcPlannedTotal(pc);}
+function pcFinalPrice(pc){const fp=num(pc['Final Price']);if(fp!=null)return fp;const lme=num(pc.LME),fx=num(pc.FX),prem=num(pc.Premium);if(lme!=null){const base=lme+(prem||0);return fx?base/fx:base;}return null;}
+function pcPorts(pc){return [...new Set(pcLines(pc).map(l=>l.port).filter(Boolean))];}
+function pcSpecs(pc){return [...new Set(pcLines(pc).map(l=>specLabel(l.spec)).filter(x=>x&&x!=='—'))];}
+function pcAssignedBLids(){const s=new Set();(Store.d.purchases||[]).forEach(pc=>(pc.blIds||[]).forEach(id=>s.add(id)));return s;}
+function pcStatusChip(pc){const planned=pcPlannedTotal(pc);const alloc=pcAllocatedNet(pc);const n=pcBLs(pc).length;
+  if(!n)return '<span class="chip amber">Awaiting BLs</span>';
+  if(pcFull(pc))return '<span class="chip green">BLs allocated</span>';
+  return '<span class="chip amber">Partial ('+fmtN(alloc,1)+'t)</span>';}
+let pcF={q:'',port:'',spec:''};
+RENDER.purchases=function(v){
+  if(Auth.can('edit_contract'))topBtn('Add purchase contract','plus','edit_contract',()=>editPurchase(null),'primary');
+  const all=(Store.d.purchases||[]).slice();
+  const plannedT=all.reduce((a,p)=>a+pcPlannedTotal(p),0);
+  const allocT=all.reduce((a,p)=>a+pcAllocatedNet(p),0);
+  const openN=all.filter(p=>!pcFull(p)).length;
+  const apN=all.filter(p=>p.apRaised).length;
+  v.insertAdjacentHTML('beforeend',`<div class="metric-row" style="margin-bottom:18px">
+    <div class="metric"><div class="m-l">Purchase contracts</div><div class="m-v">${all.length}</div></div>
+    <div class="metric"><div class="m-l">Planned tonnage</div><div class="m-v">${fmtN(plannedT,0)} t</div></div>
+    <div class="metric"><div class="m-l">BL-allocated</div><div class="m-v" style="color:var(--green)">${fmtN(allocT,1)} t</div></div>
+    <div class="metric"><div class="m-l">Awaiting / partial</div><div class="m-v" style="color:${openN?'var(--amber)':'var(--muted)'}">${openN}</div></div>
+    <div class="metric"><div class="m-l">AP raised</div><div class="m-v">${apN}</div></div></div>`);
+  const ports=[...new Set(all.flatMap(p=>pcPorts(p)))].filter(Boolean).sort();
+  const specs=[...new Set(all.flatMap(p=>pcSpecs(p)))].filter(x=>x&&x!=='—').sort();
+  const tb=el('div',{class:'toolbar'});
+  tb.innerHTML=`<div class="search">${svg('search',15)}<input class="inp" id="pcQ" placeholder="P-number, port…" value="${esc(pcF.q)}"></div>
+    <select class="inp" id="pcPort"><option value="">All ports</option>${ports.map(s=>`<option ${pcF.port===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+    <select class="inp" id="pcSpec"><option value="">All diameters</option>${specs.map(s=>`<option ${pcF.spec===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`;
+  v.append(tb);
+  const host=el('div');v.append(host);
+  const draw=()=>{
+    host.innerHTML='';
+    let rows=all.slice();const q=pcF.q.toLowerCase();
+    if(q)rows=rows.filter(p=>[p['P Number'],...pcPorts(p),...pcSpecs(p)].some(x=>String(x||'').toLowerCase().includes(q)));
+    if(pcF.port)rows=rows.filter(p=>pcPorts(p).includes(pcF.port));
+    if(pcF.spec)rows=rows.filter(p=>pcSpecs(p).includes(pcF.spec));
+    rows.sort((a,b)=>(parseDate(a['Purchase Quota'])-parseDate(b['Purchase Quota']))||String(a['P Number']).localeCompare(String(b['P Number'])));
+    const card=el('div',{class:'card'});
+    card.innerHTML=`<div class="card-h"><h3>Purchase contracts</h3><div class="hint">${rows.length} contracts · buy-side master contracts · arrivals ~90 days after quota</div></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+    if(!rows.length){card.querySelector('.tbl-wrap').innerHTML=emptyBox('contract','No purchase contracts','Add a master purchase contract to begin.');host.append(card);return;}
+    const t=el('table',{class:'tbl'});
+    t.innerHTML=`<thead><tr><th>P-Number</th><th>Purchase quota</th><th>Arrival</th><th>Product</th><th>Shipping breakdown</th><th class="num">Planned t</th><th class="num">BL t</th><th class="num">BLs</th><th class="num">Final /t</th><th>Status</th><th>AP</th><th></th></tr></thead>`;
+    const bd=el('tbody');
+    rows.forEach(pc=>{const alloc=pcAllocatedNet(pc);const nbl=pcBLs(pc).length;const canEdit=Auth.can('edit_contract');const fp=pcFinalPrice(pc);
+      const breakdown=pcLines(pc).map(l=>`${esc(l.port||'—')} · ${esc(specLabel(l.spec))} <span class="mono t-strong">${fmtN(l.tonnage,0)}t</span>`).join('<br>');
+      bd.append(el('tr',{html:`<td class="mono t-strong">${esc(pc['P Number']||'—')}</td><td class="mono t-sub">${fmtMY(pc['Purchase Quota'])}</td>
+        <td class="mono">${fmtMY(purchaseArrivalKey(pc)+'-01')}</td><td class="t-sub">${esc(pc.Product||'—')}</td>
+        <td class="t-sub" style="line-height:1.6">${breakdown||'—'}</td>
+        <td class="num">${fmtN(pcPlannedTotal(pc),0)}</td><td class="num" style="color:${alloc?'var(--green)':'var(--muted)'}">${fmtN(alloc,1)}</td><td class="num">${nbl}</td>
+        <td class="num">${fp!=null?fmtN(fp,2):'—'}</td>
+        <td>${pcStatusChip(pc)}</td>
+        <td>${pc.apRaised?'<span class="chip green">Raised</span>':(fp!=null?'<span class="chip grey">Ready</span>':'<span class="chip grey">—</span>')}</td>
+        <td style="text-align:right;white-space:nowrap">${canEdit?`<button class="btn btn-ghost btn-sm" data-abl="${pc.id}" title="Assign BLs">${svg('ship',13)}<span>${nbl?nbl+' BL':'Assign'}</span></button> ${(!pc.apRaised&&fp!=null&&Auth.can('edit_ar'))?`<button class="btn btn-primary btn-sm" data-ap="${pc.id}" title="Raise AP">${svg('receipt',13)}<span>AP</span></button> `:''}<button class="btn btn-ghost btn-sm" data-ed="${pc.id}" title="Edit">${svg('edit',13)}</button>`:''}</td>`}));});
+    t.append(bd);card.querySelector('.tbl-wrap').append(t);host.append(card);
+    card.querySelectorAll('[data-abl]').forEach(b=>b.onclick=()=>assignBLsToPurchase(b.dataset.abl));
+    card.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>editPurchase(b.dataset.ed));
+    card.querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>raiseAP(b.dataset.ap));
+  };
+  draw();
+  $('#pcQ').oninput=e=>{pcF.q=e.target.value;draw();};
+  $('#pcPort').onchange=e=>{pcF.port=e.target.value;draw();};
+  $('#pcSpec').onchange=e=>{pcF.spec=e.target.value;draw();};
+};
+function editPurchase(id){
+  if(!requirePerm('edit_contract','edit purchase contracts'))return;
+  Store.d.purchases=Store.d.purchases||[];
+  const pc=id?Store.d.purchases.find(x=>x.id===id):{};
+  const canDel=id&&Auth.can('*');
+  const ports=['Genoa','Livorno','Salerno','Trieste','Naples'];
+  const specs=['7"','8"','9"','10"','Wire Rod'];
+  let lines=pcLines(pc).map(l=>({port:l.port||'',spec:l.spec||'',tonnage:l.tonnage==null?'':l.tonnage}));
+  if(!lines.length)lines=[{port:'',spec:'',tonnage:''}];
+  const lineRow=(l,i)=>`<div class="pcl-row" data-i="${i}" style="display:grid;grid-template-columns:1fr 1fr 1fr 34px;gap:8px;margin-bottom:8px">
+    <select class="inp" data-f="port"><option value="">Port…</option>${ports.map(p=>`<option ${l.port===p?'selected':''}>${esc(p)}</option>`).join('')}</select>
+    <select class="inp" data-f="spec"><option value="">Diameter…</option>${specs.map(s=>`<option ${l.spec===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+    <input class="inp" data-f="tonnage" type="number" step="any" placeholder="Tonnage" value="${esc(l.tonnage)}">
+    <button class="btn btn-ghost btn-sm pcl-del" title="Remove">${svg('trash',13)}</button></div>`;
+  openModal(`<div class="modal-h">${svg('contract',19)}<h3>${id?'Edit purchase contract':'New purchase contract'}</h3><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="form-grid">
+      ${fld('P-Number','p_pn',pc['P Number'])}
+      ${fld('Purchase quota (month)','p_q',pc['Purchase Quota'],'date')}
+      ${seln('Product','p_prod',pc.Product||'Billets',['Billets','Wire Rods'])}
+      ${seln('QP','p_qp',pc.QP||'',['Average of M-1','Average of M-0','Unknown LME CSP (M-0)'])}
+      ${fld('Purchase premium','p_prem',pc.Premium,'number')}
+      ${fld('LME','p_lme',pc.LME,'number')}
+      ${fld('FX','p_fx',pc.FX,'number')}
+      ${fld('Final price / t','p_fp',pc['Final Price'],'number')}
+    </div>
+    <div class="divider"></div>
+    <div style="font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Shipping breakdown — tonnage by diameter & port</div>
+    <div id="pclList">${lines.map((l,i)=>lineRow(l,i)).join('')}</div>
+    <button class="btn btn-ghost btn-sm" id="pclAdd">${svg('plus',13)}<span>Add line</span></button>
+    <div class="callout grey" style="margin-top:12px">${svg('alert',16)}<div>Arrivals show ~90 days after the purchase quota. Planned tonnage shows in yellow on Inventory until BLs are assigned; once assigned it reflects the actual BL tonnage (green within \u00b15%). Set a final price to raise an AP.</div></div></div>
+    <div class="modal-f">${delBtn(canDel)}<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="mSave">${id?'Save changes':'Add contract'}</button></div>`,{wide:true});
+  const readLines=()=>{const out=[];$$('#pclList .pcl-row').forEach(r=>{const g=f=>r.querySelector('[data-f="'+f+'"]').value;const t=g('tonnage');if(g('port')||g('spec')||t)out.push({port:g('port'),spec:g('spec'),tonnage:t===''?null:num(t)});});return out;};
+  const wire=()=>{$$('#pclList .pcl-del').forEach(b=>b.onclick=()=>{const cur=readLines();const i=+b.closest('.pcl-row').dataset.i;cur.splice(i,1);if(!cur.length)cur.push({port:'',spec:'',tonnage:''});$('#pclList').innerHTML=cur.map((l,ix)=>lineRow(l,ix)).join('');wire();});};
+  wire();
+  $('#pclAdd').onclick=()=>{const cur=readLines();cur.push({port:'',spec:'',tonnage:''});$('#pclList').innerHTML=cur.map((l,ix)=>lineRow(l,ix)).join('');wire();};
+  $('#mSave').onclick=()=>{
+    const pn=gv('p_pn');if(!pn){toast('P-Number required','amber');return;}
+    const q=gv('p_q');if(!q){toast('Purchase quota required','amber');return;}
+    const ls=readLines().filter(l=>l.port||l.spec||l.tonnage!=null);
+    if(!ls.length){toast('Add at least one shipping line (port / diameter / tonnage)','amber');return;}
+    const rec={'P Number':pn,'Purchase Quota':q,Product:gv('p_prod'),QP:gv('p_qp'),Premium:gvn('p_prem'),LME:gvn('p_lme'),FX:gvn('p_fx'),'Final Price':gvn('p_fp'),lines:ls};
+    delete rec.Port;delete rec.Spec;delete rec.Tonnage;
+    if(id){Object.assign(pc,rec);pc.Port=undefined;pc.Spec=undefined;pc.Tonnage=undefined;audit('purchase contract edited',pn);}else{Store.d.purchases.push({id:uid('pc'),blIds:[],...rec});audit('purchase contract added',pn);}
+    afterSave('Purchase contract saved');
+  };
+  if(canDel)$('#mDel').onclick=()=>{if(confirm('Delete this purchase contract?')){Store.d.purchases=Store.d.purchases.filter(x=>x.id!==id);audit('purchase contract deleted',pc['P Number']);afterSave('Purchase contract deleted');}};
+}
+/* Raise an AP (accounts payable) against a purchase contract once a final price is set */
+function raiseAP(pcId){
+  if(!requirePerm('edit_ar','raise payables'))return;
+  const pc=Store.d.purchases.find(x=>x.id===pcId);if(!pc)return;
+  const fp=pcFinalPrice(pc);
+  if(fp==null){toast('Enter a final price on the purchase contract first','amber');return;}
+  if(pc.apRaised){toast('An AP has already been raised for this purchase contract','amber');return;}
+  const bls=pcBLs(pc);
+  if(!bls.length){toast('Assign at least one BL to this purchase contract before raising an AP','amber');return;}
+  let sel=new Set(bls.map(s=>s.id)); // default all allocated BLs
+  const td=termDays('60 days net');
+  const due=iso(nextWorkday(addDays(iso(new Date()),td||60)));
+  openModal(`<div class="modal-h">${svg('receipt',19)}<h3>Raise payable — ${esc(pc['P Number'])}</h3><div class="hint">${fmtMY(pc['Purchase Quota'])} · final price ${fmtN(fp,2)}/t · based on allocated BLs</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="callout grey" style="margin-bottom:10px">${svg('ship',16)}<div>Tick the allocated BLs this payable covers. The tonnage is taken from the actual BL net weights.</div></div>
+      <div class="tbl-wrap" style="max-height:34vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:34px"></th><th>BL Number</th><th>Port</th><th>Diameter</th><th class="num">Net t</th></tr></thead><tbody id="apblBody"></tbody></table></div>
+      <div class="form-grid" style="margin-top:12px">
+        ${fld('Supplier','a_sup',pc.Supplier||'')}
+        ${fld('Final price / t','a_fp',_r2(fp),'number')}
+        ${fld('Purchase quota','a_q',pc['Purchase Quota'],'date')}
+        ${fld('Due date','a_due',due,'date')}
+      </div><div class="divider"></div><div class="metric-row"><div class="metric"><div class="m-l">BL tonnage</div><div class="m-v" id="a_ton">—</div></div><div class="metric"><div class="m-l">Payable amount</div><div class="m-v" id="a_amt">—</div></div></div>
+    <div class="callout grey" style="margin-top:10px">${svg('alert',16)}<div>This records an Accounts Payable in the Credit and Trade Ledger tab and in the finance Costs &amp; Payables page. It does not affect customer credit lines.</div></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="a_go">Raise AP</button></div>`,{wide:true});
+  const recalc=()=>{const picked=bls.filter(s=>sel.has(s.id));const ton=picked.reduce((a,s)=>a+(num(s['NET WEIGHT'])||0),0);const p=gvn('a_fp');
+    $('#a_ton').textContent=fmtN(ton,3)+' t';$('#a_amt').textContent=(p!=null)?fmtEur2(ton*p):'—';};
+  const drawBL=()=>{$('#apblBody').innerHTML=bls.map(s=>{const on=sel.has(s.id);return `<tr class="rowlink" data-bl="${s.id}"><td><input type="checkbox" ${on?'checked':''} data-cb="${s.id}"></td><td class="mono t-strong">${esc(s['BL NUMBER'])}</td><td>${esc(s['PORT OF DELIVERY']||'')}</td><td class="t-sub">${esc(specLabel(s.DIAMETER))}</td><td class="num">${fmtT(s['NET WEIGHT'])}</td></tr>`;}).join('');
+    $('#apblBody').querySelectorAll('[data-cb]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.cb):sel.delete(cb.dataset.cb);recalc();});
+    $('#apblBody').querySelectorAll('tr.rowlink').forEach(r=>r.onclick=e=>{if(e.target.tagName==='INPUT')return;const id=r.dataset.bl;sel.has(id)?sel.delete(id):sel.add(id);drawBL();recalc();});};
+  drawBL();recalc();
+  $('#a_fp').addEventListener('input',recalc);
+  $('#a_go').onclick=()=>{
+    const picked=bls.filter(s=>sel.has(s.id));
+    if(!picked.length){toast('Select at least one BL','amber');return;}
+    const t=_r2(picked.reduce((a,s)=>a+(num(s['NET WEIGHT'])||0),0));const p=gvn('a_fp');
+    const recId=uid('ap');
+    Store.d.ap.push({id:recId,pcId:pc.id,'P Number':pc['P Number'],Supplier:gv('a_sup'),Product:pc.Product||'',Tonnage:t,Price:p,Amount:(t!=null&&p!=null)?t*p:null,'Purchase Quota':gv('a_q'),'DUE DATE':gv('a_due')||null,BLs:picked.map(s=>s['BL NUMBER']),Status:'Open','PAID DATE':null});
+    pc.apRaised=true;pc.apId=recId;
+    Store.save();audit('AP raised',pc['P Number']+' · '+picked.length+' BL');toast('Payable raised','green');closeModal();route();
+  };
+}
+function assignBLsToPurchase(pcId){
+  if(!requirePerm('edit_contract','assign BLs'))return;
+  const pc=Store.d.purchases.find(x=>x.id===pcId);if(!pc)return;
+  const assignedElsewhere=new Set();(Store.d.purchases||[]).forEach(p=>{if(p.id!==pcId)(p.blIds||[]).forEach(id=>assignedElsewhere.add(id));});
+  let sel=new Set(Array.isArray(pc.blIds)?pc.blIds:[]);
+  // candidate BLs: match port + diameter where set, exclude BLs on other purchase contracts
+  const cand=Store.d.shipments.filter(s=>!assignedElsewhere.has(s.id)).filter(s=>{
+    const ports=pcPorts(pc).map(invPortNorm);const specs=pcSpecs(pc);
+    const portOk=!ports.length||ports.includes(invPortNorm(s['PORT OF DELIVERY']));
+    const diaOk=!specs.length||specs.includes(specLabel(s.DIAMETER));
+    return portOk&&diaOk;
+  });
+  const draw=()=>{
+    const picked=cand.filter(s=>sel.has(s.id));
+    const net=picked.reduce((a,s)=>a+(num(s['NET WEIGHT'])||0),0);
+    const planned=pcPlannedTotal(pc);const within=planned>0&&Math.abs(net-planned)<=planned*0.05;
+    $('#ablBody').innerHTML=cand.length?cand.map(s=>{const on=sel.has(s.id);return `<tr class="rowlink" data-bl="${s.id}">
+      <td><input type="checkbox" ${on?'checked':''} data-cb="${s.id}"></td>
+      <td class="mono t-strong">${esc(s['BL NUMBER'])}</td><td class="mono t-sub">${esc(s['PURCHASE NUMBER']||'—')}</td>
+      <td class="mono t-sub">${fmtMY(s['QUOTA MONTH'])}</td><td>${esc(s['PORT OF DELIVERY']||'')}</td><td class="t-sub">${esc(specLabel(s.DIAMETER))}</td>
+      <td class="num">${fmtT(s['NET WEIGHT'])}</td></tr>`;}).join('')
+      :`<tr><td colspan="7"><div class="empty" style="padding:22px">No matching BLs. Add BLs for ${esc(pcPorts(pc).join(', ')||'this contract')} / ${esc(pcSpecs(pc).join(', '))} on the Shipments page.</div></td></tr>`;
+    $('#ablTot').innerHTML=`<div class="metric"><div class="m-l">Selected BLs</div><div class="m-v">${picked.length}</div></div>
+      <div class="metric"><div class="m-l">BL tonnage</div><div class="m-v" style="color:${within?'var(--green)':'var(--amber)'}">${fmtN(net,1)} t</div></div>
+      <div class="metric"><div class="m-l">Planned</div><div class="m-v">${fmtN(planned,0)} t</div></div>
+      <div class="metric"><div class="m-l">Variance</div><div class="m-v" style="color:${within?'var(--green)':'var(--amber)'}">${planned?fmtN((net-planned)/planned*100,1)+'%':'—'}</div></div>`;
+    $('#ablBody').querySelectorAll('[data-cb]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.cb):sel.delete(cb.dataset.cb);draw();});
+    $('#ablBody').querySelectorAll('tr.rowlink').forEach(r=>r.onclick=e=>{if(e.target.tagName==='INPUT')return;const id=r.dataset.bl;sel.has(id)?sel.delete(id):sel.add(id);draw();});
+  };
+  openModal(`<div class="modal-h">${svg('ship',19)}<h3>Assign BLs — ${esc(pc['P Number'])}</h3><div class="hint">${esc(pcPorts(pc).join(', '))} · ${esc(pcSpecs(pc).join(', '))} · ${fmtMY(pc['Purchase Quota'])} · planned ${fmtN(pcPlannedTotal(pc),0)}t</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="tbl-wrap" style="max-height:50vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:36px"></th><th>BL Number</th><th>Purchase</th><th>Quota</th><th>Port</th><th>Diameter</th><th class="num">Net t</th></tr></thead><tbody id="ablBody"></tbody></table></div>
+      <div class="metric-row" style="margin-top:12px" id="ablTot"></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="ablSave">Save assignment</button></div>`,{wide:true,noFocus:true});
+  draw();
+  $('#ablSave').onclick=()=>{pc.blIds=cand.map(s=>s.id).filter(id=>sel.has(id));audit('BLs assigned to purchase',pc['P Number']+' · '+pc.blIds.length+' BLs');afterSave('BLs assigned');};
+}
 RENDER.contracts=function(v){
   if(Auth.can('edit_contract'))topBtn('Add contract line','plus','edit_contract',()=>editContract(null),'primary');
   if(Auth.can('export'))topBtn('Export','download','export',()=>exportSheet('contracts'));
@@ -1663,7 +1950,8 @@ RENDER.contracts=function(v){
     <select class="inp" id="ctSpec"><option value="">All diameters</option>${specs.map(s=>`<option ${ctF.spec===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
     <select class="inp" id="ctPort"><option value="">All ports</option>${ports.map(s=>`<option ${ctF.port===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
     <select class="inp" id="ctQuota"><option value="">All quotas</option>${quotas.map(s=>`<option value="${esc(s)}" ${ctF.quota===s?'selected':''}>${fmtMY(s)}</option>`).join('')}</select>
-    <select class="inp" id="ctCust"><option value="">All customers</option>${custs.map(s=>`<option ${ctF.customer===s?'selected':''}>${esc(s)}</option>`).join('')}</select>`;
+    <select class="inp" id="ctCust"><option value="">All customers</option>${custs.map(s=>`<option ${ctF.customer===s?'selected':''}>${esc(s)}</option>`).join('')}</select>
+    <select class="inp" id="ctLife"><option value="">Open &amp; closed</option><option value="open" ${ctF.life==='open'?'selected':''}>Open only</option><option value="closed" ${ctF.life==='closed'?'selected':''}>Closed only</option></select>`;
   v.append(tb);
   const host=el('div');v.append(host);
   const draw=()=>{
@@ -1676,24 +1964,26 @@ RENDER.contracts=function(v){
     if(ctF.port)rows=rows.filter(c=>c['Service Port']===ctF.port);
     if(ctF.quota)rows=rows.filter(c=>c.Quota===ctF.quota);
     if(ctF.customer)rows=rows.filter(c=>c.Customer===ctF.customer);
+    if(ctF.life==='open')rows=rows.filter(c=>!ctIsClosed(c));
+    else if(ctF.life==='closed')rows=rows.filter(c=>ctIsClosed(c));
     rows.sort((a,b)=>String(a['S Number']).localeCompare(String(b['S Number']))|| (parseDate(a.Quota)-parseDate(b.Quota)));
     const card=el('div',{class:'card'});
     card.innerHTML=`<div class="card-h"><h3>Contract lines</h3><div class="hint">${rows.length} lines · ${new Set(rows.map(r=>r['S Number'])).size} contracts · click a row for full lifecycle</div></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
     if(!rows.length){card.querySelector('.tbl-wrap').innerHTML=emptyBox('contract','No contracts match','Adjust your filters.');host.append(card);return;}
     const t=el('table',{class:'tbl'});
     t.innerHTML=`<thead><tr><th>S-Number</th><th>P-Number</th><th></th><th>Customer</th><th>Diameter</th><th>Port</th><th>Quota</th><th>QP</th>
-      <th class="num">Tonnage</th><th class="num">Lots</th><th class="num">Prem</th><th>Payment</th><th>BL</th><th class="num">Final €/t</th><th>Status</th></tr></thead>`;
+      <th class="num">Tonnage</th><th class="num">Lots</th><th class="num">Prem</th><th>Payment</th><th>BL</th><th class="num">Final €/t</th><th>Pricing</th><th>Lifecycle</th></tr></thead>`;
     const bd=el('tbody');
     rows.forEach(c=>{
       const st=statusChip(c);
       const hasDoc=contractDoc(c['S Number']);
-      bd.append(el('tr',{class:'rowlink',onclick:()=>{location.hash='#/lifecycle';setTimeout(()=>lifecycleLookup(c['S Number']),60);},html:
+      bd.append(el('tr',{class:'rowlink',onclick:()=>{lifecycleLookup(c['S Number'],c.Quota?fmtMY(c.Quota):null);},html:
         `<td class="mono t-strong">${esc(c['S Number'])}</td><td class="mono t-sub">${esc(c['P number']||'—')}</td><td>${hasDoc?`<span title="Signed contract on file" style="color:var(--green)">${svg('contract',14)}</span>`:''}</td><td>${esc(c.Customer)}</td><td class="t-sub">${esc(c.Spec)}</td>
          <td>${esc(c['Service Port'])}</td><td class="mono t-sub">${fmtMY(c.Quota)}</td><td class="t-sub">${esc(c.QP||'—')}</td>
          <td class="num">${fmtN(c.Tonnage)}</td><td class="num">${fmtN(c._lots,0)}</td><td class="num">${fmtN(c.Premium)}</td>
          <td class="t-sub" style="max-width:150px;overflow:hidden;text-overflow:ellipsis">${esc(c['Payment Terms'])}</td>
          <td class="mono t-sub">${esc(c['BL Allocation']||'—')}</td>
-         <td class="num">${c._finalPrice?fmtN(c._finalPrice,2):'—'}</td><td>${st}</td>`}));
+         <td class="num">${c._finalPrice?fmtN(c._finalPrice,2):'—'}</td><td>${st}</td><td>${lifeChip(c)}</td>`}));
     });
     t.append(bd);card.querySelector('.tbl-wrap').append(t);host.append(card);
   };
@@ -1701,6 +1991,7 @@ RENDER.contracts=function(v){
   $$('#ctProd button').forEach(b=>b.onclick=()=>{ctF.product=b.dataset.p;$$('#ctProd button').forEach(x=>x.classList.toggle('on',x===b));draw();});
   $('#ctQ').oninput=e=>{ctF.q=e.target.value;draw();};
   ['Spec','Port','Quota','Cust'].forEach(k=>{const key={Spec:'spec',Port:'port',Quota:'quota',Cust:'customer'}[k];$('#ct'+k).onchange=e=>{ctF[key]=e.target.value;draw();};});
+  $('#ctLife').onchange=e=>{ctF.life=e.target.value;draw();};
 };
 
 /* ---------- G4. CREDIT & RECEIVABLES ---------- */
@@ -1724,7 +2015,7 @@ RENDER.credit=function(v){
   v.append(strip);
 
   const seg=el('div',{class:'toolbar'});
-  seg.innerHTML=`<div class="seg" id="crSeg"><button data-t="lines" class="${crTab==='lines'?'on':''}">Credit lines</button><button data-t="ar" class="${crTab==='ar'?'on':''}">Receivables</button></div>
+  seg.innerHTML=`<div class="seg" id="crSeg"><button data-t="lines" class="${crTab==='lines'?'on':''}">Credit lines</button><button data-t="ar" class="${crTab==='ar'?'on':''}">Receivables (AR)</button><button data-t="ap" class="${crTab==='ap'?'on':''}">Payables (AP)</button></div>
     <div class="search">${svg('search',15)}<input class="inp" id="crQ" placeholder="Search customer…" value="${esc(crF.q)}"></div>
     <div class="sp"></div><button class="btn btn-primary btn-sm" id="crCalc2">${svg('calc',15)}<span>Calculate sellable tonnage</span></button>`;
   v.append(seg);
@@ -1804,7 +2095,42 @@ RENDER.credit=function(v){
     wrap.append(pcard);
     return wrap;
   };
-  const draw=()=>{host.innerHTML='';host.append(crTab==='lines'?drawLines():drawAR());};
+  const drawAP=()=>{
+    const q=crF.q.toLowerCase();
+    let rows=(Store.d.ap||[]).slice();
+    if(q)rows=rows.filter(a=>[a['P Number'],a.Supplier].some(x=>String(x||'').toLowerCase().includes(q)));
+    const openRows=rows.filter(a=>(a.Status||'Open')!=='Paid').sort((a,b)=>(parseDate(a['DUE DATE'])||0)-(parseDate(b['DUE DATE'])||0));
+    const paidRows=rows.filter(a=>(a.Status||'Open')==='Paid');
+    const openSum=openRows.reduce((s,a)=>s+(num(a.Amount)||0),0);
+    const paidSum=paidRows.reduce((s,a)=>s+(num(a.Amount)||0),0);
+    const wrap=el('div');
+    const card=el('div',{class:'card',style:'margin-bottom:16px'});
+    card.innerHTML=`<div class="card-h"><h3>Open payables</h3><div class="hint">amounts owed to suppliers on purchase contracts</div><div class="sp"></div><span class="chip amber">${fmtEur2(openSum)} open</span></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+    const t=el('table',{class:'tbl'});
+    t.innerHTML=`<thead><tr><th>P-Number</th><th>Supplier</th><th>Product</th><th>Purchase Q</th><th class="num">Tonnage</th><th class="num">Price/t</th><th class="num">Amount</th><th>Due</th><th>Status</th><th></th></tr></thead>`;
+    const bd=el('tbody');
+    openRows.forEach(a=>{const od=parseDate(a['DUE DATE'])&&parseDate(a['DUE DATE'])<today();
+      bd.append(el('tr',{html:`<td class="mono t-strong">${esc(a['P Number']||'—')}</td><td>${esc(a.Supplier||'—')}</td><td class="t-sub">${esc(a.Product||'—')}</td>
+        <td class="mono t-sub">${fmtMY(a['Purchase Quota'])}</td><td class="num">${fmtT(a.Tonnage)}</td><td class="num">${fmtN(a.Price,2)}</td><td class="num t-strong">${fmtEur2(a.Amount)}</td>
+        <td class="mono">${od?'<span class="chip amber" style="padding:1px 6px">'+fmtDate(a['DUE DATE'])+'</span>':fmtDate(a['DUE DATE'])}</td>
+        <td>${od?'<span class="chip amber">Overdue</span>':'<span class="chip grey">Open</span>'}</td>
+        <td style="text-align:right">${Auth.can('edit_ar')?`<button class="btn btn-ghost btn-sm" data-pay="${a.id}" title="Mark paid">${svg('check',13)}<span>Mark paid</span></button>`:''}</td>`}));});
+    t.append(bd);card.querySelector('.tbl-wrap').append(t);
+    if(!openRows.length)card.querySelector('.tbl-wrap').innerHTML=emptyBox('receipt','No open payables','Raise an AP from a purchase contract once its final price is set.');
+    t.querySelectorAll('[data-pay]').forEach(b=>b.onclick=()=>{const a=Store.d.ap.find(x=>x.id===b.dataset.pay);if(a){a.Status='Paid';a['PAID DATE']=iso(new Date());Store.save();audit('AP settled',a['P Number']);toast('Payable marked paid','green');route();}});
+    wrap.append(card);
+    const pcard=el('div',{class:'card'});
+    pcard.innerHTML=`<div class="card-h"><h3>Settled payables</h3><div class="sp"></div><span class="chip green">${fmtEur2(paidSum)} paid</span></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
+    const pt=el('table',{class:'tbl'});
+    pt.innerHTML=`<thead><tr><th>P-Number</th><th>Supplier</th><th class="num">Amount</th><th>Purchase Q</th><th>Paid on</th></tr></thead>`;
+    const pb=el('tbody');
+    paidRows.forEach(a=>{pb.append(el('tr',{html:`<td class="mono t-strong">${esc(a['P Number']||'—')}</td><td>${esc(a.Supplier||'—')}</td><td class="num t-strong">${fmtEur2(a.Amount)}</td><td class="mono t-sub">${fmtMY(a['Purchase Quota'])}</td><td class="mono">${fmtDate(a['PAID DATE'])}</td>`}));});
+    pt.append(pb);pcard.querySelector('.tbl-wrap').append(pt);
+    if(!paidRows.length)pcard.querySelector('.tbl-wrap').innerHTML=emptyBox('check','No settled payables yet','Mark a payable paid to record it here.');
+    wrap.append(pcard);
+    return wrap;
+  };
+  const draw=()=>{host.innerHTML='';host.append(crTab==='lines'?drawLines():crTab==='ap'?drawAP():drawAR());};
   draw();
   $$('#crSeg button').forEach(b=>b.onclick=()=>{crTab=b.dataset.t;$$('#crSeg button').forEach(x=>x.classList.toggle('on',x===b));draw();$('#crExportlbl');});
   $('#crQ').oninput=e=>{crF.q=e.target.value;draw();};
@@ -1821,14 +2147,89 @@ const STAGES=[
   {k:'raised', nm:'AR raised',        ic:'receipt'},
   {k:'received',nm:'AR received',     ic:'euro'}
 ];
+/* Raise a receivable directly from a sales contract delivery line.
+   Enabled only once every allocated PB has a delivery date. Marks the line Closed. */
+function raiseReceivableFromLine(lineId,sn){
+  if(!requirePerm('edit_ar','raise receivables'))return;
+  const l=Store.d.contracts.find(x=>x.id===lineId);if(!l)return;
+  if(!ctAllocPBs(l).length){toast('Allocate PBs to this delivery first','amber');return;}
+  const invoiceable=ctInvoiceablePBs(l);
+  if(!invoiceable.length){toast('No delivered, un-invoiced PBs to raise — set delivery dates or all lots are already invoiced','amber');return;}
+  const sh=shipmentByBL(l['BL Allocation']);
+  const byPb={};if(sh)shipContainers(sh).forEach(x=>{if(String(x.pb||'').trim())byPb[x.pb]=x;});
+  const dl=deriveContract(l);
+  const price=dl._finalPrice!=null?_r2(dl._finalPrice):null;
+  const custFull=(function(){const e=customerDirectory()[custKey(l.Customer)];return (e&&e.credit&&e.credit['Full Company Name'])||l.Customer;})();
+  let sel=new Set(invoiceable); // default: all invoiceable lots
+  openModal(`<div class="modal-h">${svg('receipt',19)}<h3>Raise receivable — ${esc(sn)}</h3><div class="hint">${esc(custShort(l.Customer))} · ${fmtMY(l.Quota)} delivery · choose the lots to invoice</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">
+      <div class="callout grey" style="margin-bottom:10px">${svg('box',16)}<div>Tick the PBs (lots) to raise this receivable against. You can raise partial invoices — remaining lots stay open for a later invoice.</div></div>
+      <div class="tbl-wrap" style="max-height:34vh;overflow:auto"><table class="tbl"><thead><tr><th style="width:34px"></th><th>PB number</th><th class="num">Net t</th><th>Delivery date</th></tr></thead><tbody id="rpbBody"></tbody></table></div>
+      <div class="form-grid" style="margin-top:12px">
+        <div class="fg full"><label>Customer</label><input class="inp" id="r_cust" value="${esc(custFull)}"></div>
+        ${fld('Delivery quota','r_dq',l.Quota,'date')}
+        ${fld('Price / t (€)','r_price',price,'number')}
+        ${fld('Premium','r_prem',num(l.Premium),'number')}
+        <div class="fg"><label>Payment term</label><input class="inp" id="r_pt" value="${esc(l['Payment Terms']||'')}"></div>
+        ${fld('Invoice number','r_inv','')}
+        ${fld('Delivery date','r_dd','','date')}
+        ${fld('Due date','r_due','','date')}
+      </div>
+      <div class="divider"></div><div class="metric-row"><div class="metric"><div class="m-l">Lots selected</div><div class="m-v" id="r_cnt">—</div></div><div class="metric"><div class="m-l">Net tonnage</div><div class="m-v" id="r_net">—</div></div><div class="metric"><div class="m-l">Total amount</div><div class="m-v" id="r_tot">—</div></div></div>
+      <div class="callout grey" style="margin-top:10px">${svg('alert',16)}<div>This records a receivable (also in the Receivables tab), remembers which PBs it covers, and closes the delivery once every allocated PB is invoiced.</div></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" id="r_go">Raise receivable</button></div>`,{wide:true});
+  let dueTouched=false;
+  const computeDue=()=>{if(dueTouched)return;const dd=gv('r_dd');const td=termDays(gv('r_pt'));if(dd&&td!=null)$('#r_due').value=iso(nextWorkday(addDays(dd,td)));};
+  const recalc=()=>{
+    const picked=invoiceable.filter(pb=>sel.has(pb));
+    const net=picked.reduce((a,pb)=>a+(byPb[pb]?(num(byPb[pb].net)||0):0),0);
+    const p=gvn('r_price');
+    const dates=picked.map(pb=>l.pbDelivery[pb]).filter(Boolean).sort();
+    if(dates.length&&!$('#r_dd').value){$('#r_dd').value=dates[dates.length-1];computeDue();}
+    $('#r_cnt').textContent=picked.length+' / '+invoiceable.length;
+    $('#r_net').textContent=fmtN(net,3)+' t';
+    $('#r_tot').textContent=(p!=null)?fmtEur2(net*p):'—';
+  };
+  const drawPB=()=>{
+    $('#rpbBody').innerHTML=invoiceable.map(pb=>{const c=byPb[pb]||{};const on=sel.has(pb);return `<tr class="rowlink" data-pb="${esc(pb)}"><td><input type="checkbox" ${on?'checked':''} data-cb="${esc(pb)}"></td><td class="mono t-strong">${esc(pb)}</td><td class="num">${fmtT(c.net)}</td><td class="mono t-sub">${fmtDate(l.pbDelivery[pb])}</td></tr>`;}).join('');
+    $('#rpbBody').querySelectorAll('[data-cb]').forEach(cb=>cb.onchange=()=>{cb.checked?sel.add(cb.dataset.cb):sel.delete(cb.dataset.cb);recalc();});
+    $('#rpbBody').querySelectorAll('tr.rowlink').forEach(r=>r.onclick=e=>{if(e.target.tagName==='INPUT')return;const pb=r.dataset.pb;sel.has(pb)?sel.delete(pb):sel.add(pb);drawPB();recalc();});
+  };
+  drawPB();recalc();
+  $('#r_price').addEventListener('input',recalc);
+  $('#r_dd').addEventListener('change',computeDue);
+  $('#r_pt').addEventListener('input',computeDue);
+  $('#r_due').addEventListener('input',()=>{dueTouched=true;});
+  $('#r_go').onclick=()=>{
+    const cu=gv('r_cust');if(!cu){toast('Customer required','amber');return;}
+    const picked=invoiceable.filter(pb=>sel.has(pb));
+    if(!picked.length){toast('Select at least one PB','amber');return;}
+    const net=_r2(picked.reduce((a,pb)=>a+(byPb[pb]?(num(byPb[pb].net)||0):0),0));
+    const p=gvn('r_price');
+    const rec={CUSTOMER:cu,'DELIVERY Q':gv('r_dq')||l.Quota||null,'NET TONNAGE':net,PRICE:p,PREMIUM:gvn('r_prem'),'PAYMENT TERM':gv('r_pt'),'DELIVERY DATE':gv('r_dd')||null,'INV No.':gv('r_inv'),'DUE DATE':gv('r_due')||null,Status:'Open','PAID DATE':null};
+    rec['TOTAL AMOUNT']=(net!=null&&p!=null)?net*p:null;
+    const recId=uid('ar');Store.d.ar.push({id:recId,...rec});
+    l.invoices=ctInvoices(l).concat([{arId:recId,pbs:picked,invNo:gv('r_inv')||'',date:gv('r_dd')||iso(new Date())}]);
+    l.arRaised=true;l.arId=recId; // keep last-raised reference
+    Store.save();audit('receivable raised from contract',sn+' · '+fmtMY(l.Quota)+' · '+picked.length+' lots');
+    toast(ctIsClosed(l)?'Receivable raised — delivery closed':'Receivable raised for '+picked.length+' lot(s)','green');closeModal();route();
+  };
+}
+function openContractInvoices(lineId,sn){
+  const l=Store.d.contracts.find(x=>x.id===lineId);if(!l)return;
+  const invs=ctInvoices(l);
+  openModal(`<div class="modal-h">${svg('receipt',19)}<h3>Invoices — ${esc(sn)}</h3><div class="hint">${esc(custShort(l.Customer))} · ${fmtMY(l.Quota)} · download any invoice, any number of times</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Invoice</th><th class="num">Lots</th><th>PBs</th><th class="num">Amount</th><th>Status</th><th></th></tr></thead><tbody>
+      ${invs.map(iv=>{const a=Store.d.ar.find(x=>x.id===iv.arId);const paid=a&&(a.Status||'Open')==='Paid';return `<tr><td class="mono t-strong">${esc(iv.invNo||(a&&a['INV No.'])||'—')}</td><td class="num">${(iv.pbs||[]).length}</td><td class="mono t-sub" style="max-width:220px;white-space:normal">${(iv.pbs||[]).map(pb=>esc(pb)).join(', ')}</td><td class="num">${a?fmtEur2(a._total!=null?a._total:(num(a['TOTAL AMOUNT'])||(num(a['NET TONNAGE'])||0)*(num(a.PRICE)||0))):'—'}</td><td>${paid?'<span class="chip green">Paid</span>':'<span class="chip grey">Open</span>'}</td><td style="text-align:right"><button class="btn btn-primary btn-sm" data-dl="${esc(iv.arId)}">${svg('download',13)}<span>Download</span></button></td></tr>`;}).join('')}
+    </tbody></table></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
+  document.querySelectorAll('#modal [data-dl]').forEach(b=>b.onclick=()=>openInvoice(b.dataset.dl));
+}
 function matchARforContract(lines){
   const cust=lines[0]?.Customer;const key=custKey(cust);
   return Store.d.ar.map(deriveAR).filter(a=>custKey(a.CUSTOMER)===key).filter(a=>{
-    // same delivery quota month, or delivery date within 45 days of any line delivery
-    return lines.some(l=>{
-      if(l.Quota&&a['DELIVERY Q']&&fmtMY(l.Quota)===fmtMY(a['DELIVERY Q']))return true;
-      const d=daysBetween(l._delivery,a['DELIVERY DATE']);return d!=null&&Math.abs(d)<=45;
-    });
+    // strict: same delivery quota month only (a July receivable shows only under July)
+    return lines.some(l=>l.Quota&&a['DELIVERY Q']&&fmtMY(l.Quota)===fmtMY(a['DELIVERY Q']));
   });
 }
 function computeStages(lines){
@@ -1877,8 +2278,8 @@ function contractLifecycle(sn){
   const overall=computeStages(lines);
   return {lines,groups,...overall};
 }
-let lcCurrent=null;
-function lifecycleLookup(sn){lcCurrent=sn;if(location.hash!=='#/lifecycle')location.hash='#/lifecycle';else route();}
+let lcCurrent=null, lcQuota=null;
+function lifecycleLookup(sn,quota){lcCurrent=sn;lcQuota=quota||null;if(location.hash!=='#/lifecycle')location.hash='#/lifecycle';else route();}
 RENDER.lifecycle=function(v){
   const sns=[...new Set(Store.d.contracts.map(c=>c['S Number']))].filter(x=>x&&x!=='-').sort();
   const tb=el('div',{class:'toolbar'});
@@ -1917,8 +2318,11 @@ RENDER.lifecycle=function(v){
     if(doc){$('#docView')?.addEventListener('click',()=>openDocViewer(doc));}
     if(doc&&canEdit){$('#docDel').onclick=()=>{if(confirm('Remove the signed contract for '+sn+'?')){removeContractDoc(sn);audit('signed contract removed',sn);show(sn);}};}
 
-    // per-quota lifecycle groups
-    lc.groups.forEach(g=>{
+    // per-quota lifecycle groups (optionally a single delivery when drilled from a contract row / Customer 360)
+    let groups=lc.groups;
+    if(lcQuota){const only=groups.filter(g=>g.quota===lcQuota);if(only.length)groups=only;}
+    if(lcQuota&&groups.length<lc.groups.length){host.append(el('div',{class:'callout grey',style:'margin-bottom:14px',html:`${svg('alert',16)}<div>Showing the <b>${esc(lcQuota)}</b> delivery only. <a class="lnk" id="lcAll">Show all ${lc.groups.length} deliveries for ${esc(sn)}</a></div>`}));}
+    groups.forEach(g=>{
       const card=el('div',{class:'card',style:'margin-bottom:16px'});
       const gTon=g.lines.reduce((s,l)=>s+(num(l.Tonnage)||0),0);
       card.innerHTML=`<div class="card-h"><span class="chip grey">${esc(g.quota)}</span><h3 style="margin-left:2px;font-size:13.5px">Delivery lifecycle</h3><div class="hint">${fmtN(gTon)} t · ${g.lines.length} line${g.lines.length>1?'s':''}</div></div>
@@ -1946,7 +2350,7 @@ RENDER.lifecycle=function(v){
           <td>${relChip(l['Release Status'])}</td><td>${custChip(l['Customs Status'])}</td>
           <td class="mono">${fmtDate(l._delivery)}</td><td class="mono">${fmtDate(l._receivable)}</td>
           <td class="num">${l._finalPrice?fmtN(l._finalPrice,2):'—'}</td><td>${statusChip(l)}</td>
-          <td style="text-align:right;white-space:nowrap">${canEdit?`<button class="btn btn-ghost btn-sm" data-prog="${l.id}" title="Set progress">${svg('anchor',13)}</button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation'])&&canEdit)?`<button class="btn btn-ghost btn-sm" data-pbs="${l.id}" title="Allocate PB numbers">${svg('box',13)}<span>${(Array.isArray(l.pbAlloc)&&l.pbAlloc.length)?fmtN(l.pbAlloc.length,0)+' PB':'PBs'}</span></button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation']))?`<button class="btn btn-ghost btn-sm" data-dsum="${l.id}" title="Delivery summary">${svg('truck',13)}</button> `:''}${priceBtn}</td>`}));});
+          <td style="text-align:right;white-space:nowrap">${canEdit?`<button class="btn btn-ghost btn-sm" data-prog="${l.id}" title="Set progress">${svg('anchor',13)}</button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation'])&&canEdit)?`<button class="btn btn-ghost btn-sm" data-pbs="${l.id}" title="Allocate PB numbers">${svg('box',13)}<span>${(Array.isArray(l.pbAlloc)&&l.pbAlloc.length)?fmtN(l.pbAlloc.length,0)+' PB':'PBs'}</span></button> `:''}${(l['BL Allocation']&&!/^tbc$/i.test(l['BL Allocation']))?`<button class="btn btn-ghost btn-sm" data-dsum="${l.id}" title="Delivery summary">${svg('truck',13)}</button> `:''}${(Auth.can('edit_ar')&&ctInvoiceablePBs(l).length)?`<button class="btn btn-primary btn-sm" data-raise="${l.id}" title="Raise receivable for delivered lots">${svg('receipt',13)}<span>Raise AR${ctInvoicedPBs(l).size?' ('+ctInvoiceablePBs(l).length+' left)':''}</span></button> `:''}${ctInvoices(l).length?`<button class="btn btn-ghost btn-sm" data-cinv="${l.id}" title="Download invoice(s)">${svg('download',13)}<span>Invoice${ctInvoices(l).length>1?'s ('+ctInvoices(l).length+')':''}</span></button> `:''}${ctIsClosed(l)?`<span class="chip green" title="All lots invoiced">${svg('check',12)} Closed</span> `:''}${priceBtn}</td>`}));});
       t.append(bd);card.querySelector('.tw-alloc').append(t);
       // matched receivables for this quota
       const ar=g.arRows;const twar=card.querySelector('.tw-ar');
@@ -1960,12 +2364,15 @@ RENDER.lifecycle=function(v){
       card.querySelectorAll('[data-alloc]').forEach(b=>b.onclick=()=>allocateBL(b.dataset.alloc,sn));
       card.querySelectorAll('[data-pbs]').forEach(b=>b.onclick=()=>allocatePBs(b.dataset.pbs,sn));
       card.querySelectorAll('[data-dsum]').forEach(b=>b.onclick=()=>openDeliverySummary(b.dataset.dsum,sn));
+      card.querySelectorAll('[data-raise]').forEach(b=>b.onclick=()=>raiseReceivableFromLine(b.dataset.raise,sn));
+      card.querySelectorAll('[data-cinv]').forEach(b=>b.onclick=()=>openContractInvoices(b.dataset.cinv,sn));
     });
+    const la=$('#lcAll');if(la)la.onclick=()=>{lcQuota=null;show(sn);};
   };
   if(lcCurrent&&sns.includes(lcCurrent))show(lcCurrent);
   else host.innerHTML=`<div class="callout grey">${svg('lifecycle',17)}<div>Search a contract number above to trace its full lifecycle — from signing through pricing, allocation, customs, delivery and receivable settlement.</div></div>`;
-  $('#lcGo').onclick=()=>{const val=$('#lcQ').value.trim().toUpperCase();if(sns.includes(val))show(val);else toast('No contract '+val,'amber');};
-  $('#lcQ').addEventListener('change',()=>{const val=$('#lcQ').value.trim().toUpperCase();if(sns.includes(val))show(val);});
+  $('#lcGo').onclick=()=>{const val=$('#lcQ').value.trim().toUpperCase();if(sns.includes(val)){lcQuota=null;show(val);}else toast('No contract '+val,'amber');};
+  $('#lcQ').addEventListener('change',()=>{const val=$('#lcQ').value.trim().toUpperCase();if(sns.includes(val)){lcQuota=null;show(val);}});
 };
 
 /* ---------- G6. CUSTOMER 360 ---------- */
@@ -2007,7 +2414,7 @@ RENDER.customer=function(v){
     cc.innerHTML=`<div class="card-h"><h3>Contracts</h3><div class="hint">${contracts.length} lines · ${new Set(contracts.map(c=>c['S Number'])).size} contracts</div></div><div class="card-b flush"><div class="tbl-wrap"></div></div>`;
     if(contracts.length){const t=el('table',{class:'tbl'});t.innerHTML='<thead><tr><th>S-Number</th><th>Product</th><th>Diameter</th><th>Port</th><th>Quota</th><th class="num">Tonnage</th><th class="num">Priced</th><th class="num">Open</th><th>Delivery</th><th>Receivable</th><th>Status</th></tr></thead>';const bd=el('tbody');
       contracts.sort((a,b)=>parseDate(a.Quota)-parseDate(b.Quota)).forEach(c=>{
-        bd.append(el('tr',{class:'rowlink',onclick:()=>lifecycleLookup(c['S Number']),html:`<td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(c.Product)}</td><td class="t-sub">${esc(c.Spec)}</td><td>${esc(c['Service Port'])}</td><td class="mono t-sub">${fmtMY(c.Quota)}</td><td class="num">${fmtN(c.Tonnage)}</td><td class="num" style="color:${c._pricedTon>0?'var(--green)':'var(--muted)'}">${fmtN(c._pricedTon,1)}</td><td class="num" style="color:${c._openTon>0?'var(--amber)':'var(--muted)'}">${fmtN(c._openTon,1)}</td><td class="mono">${fmtDate(c._delivery)}</td><td class="mono">${fmtDate(c._receivable)}</td><td>${statusChip(c)}</td>`}));});
+        bd.append(el('tr',{class:'rowlink',onclick:()=>lifecycleLookup(c['S Number'],c.Quota?fmtMY(c.Quota):null),html:`<td class="mono t-strong">${esc(c['S Number'])}</td><td>${esc(c.Product)}</td><td class="t-sub">${esc(c.Spec)}</td><td>${esc(c['Service Port'])}</td><td class="mono t-sub">${fmtMY(c.Quota)}</td><td class="num">${fmtN(c.Tonnage)}</td><td class="num" style="color:${c._pricedTon>0?'var(--green)':'var(--muted)'}">${fmtN(c._pricedTon,1)}</td><td class="num" style="color:${c._openTon>0?'var(--amber)':'var(--muted)'}">${fmtN(c._openTon,1)}</td><td class="mono">${fmtDate(c._delivery)}</td><td class="mono">${fmtDate(c._receivable)}</td><td>${statusChip(c)}</td>`}));});
       t.append(bd);cc.querySelector('.tbl-wrap').append(t);}else cc.querySelector('.tbl-wrap').innerHTML=emptyBox('contract','No contracts','No contracts on file for this client.');
     host.append(cc);
     // receivables
@@ -2417,6 +2824,7 @@ function inventoryModel(){
   const mset=new Set();
   ships.forEach(s=>{const k=invArrivalKey(s);if(k)mset.add(k);});
   contracts.forEach(c=>{const k=invMonthKey(c.Quota||c._delivery);if(k)mset.add(k);});
+  (Store.d.purchases||[]).forEach(pc=>{const k=purchaseArrivalKey(pc);if(k)mset.add(k);});
   let months=[...mset].sort();
   if(!months.length){const t=today();for(let i=0;i<12;i++){const d=new Date(t.getFullYear(),t.getMonth()+i,1);months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));}}
   if(months.length>15)months=months.slice(0,15);
@@ -2428,29 +2836,68 @@ function inventoryModel(){
   const portSet=new Set(Object.keys(custByPort));
   ships.forEach(s=>portSet.add(invPortNorm(s['PORT OF DELIVERY'])));
   contracts.forEach(c=>portSet.add(invPortNorm(c['Service Port'])));
+  (Store.d.purchases||[]).forEach(pc=>pcPorts(pc).forEach(p=>portSet.add(invPortNorm(p))));
   const ports=[...portSet].filter(p=>p&&p!=='Unassigned').sort();
   if(portSet.has('Unassigned'))ports.push('Unassigned');
   const diaSet=new Set();
   ships.forEach(s=>diaSet.add(specLabel(s.DIAMETER)));
   contracts.forEach(c=>diaSet.add(specLabel(c.Spec)));
+  (Store.d.purchases||[]).forEach(pc=>pcSpecs(pc).forEach(d=>diaSet.add(d)));
   ['7 Inch','8 Inch','9 Inch','10 Inch'].forEach(d=>diaSet.add(d));
   const diameters=[...diaSet].filter(d=>d&&d!=='—').sort((a,b)=>(parseInt(a)||99)-(parseInt(b)||99));
   // cube
-  const inc={},blsByCell={},salesByCust={},custSet={};
-  ships.forEach(s=>{const p=invPortNorm(s['PORT OF DELIVERY']);const dia=specLabel(s.DIAMETER);const mk=invArrivalKey(s);if(!mk)return;const key=p+'|'+dia+'|'+mk;inc[key]=(inc[key]||0)+(num(s['NET WEIGHT'])||0);(blsByCell[key]=blsByCell[key]||[]).push(s);});
-  contracts.forEach(c=>{const p=invPortNorm(c['Service Port']);const dia=specLabel(c.Spec);const mk=invMonthKey(c.Quota||c._delivery);if(!mk)return;const cust=custShort(c.Customer);const bkey=p+'|'+dia;const ck=bkey+'|'+cust;salesByCust[ck]=salesByCust[ck]||{};salesByCust[ck][mk]=(salesByCust[ck][mk]||0)+(num(c.Tonnage)||0);(custSet[bkey]=custSet[bkey]||new Set()).add(cust);});
-  return {months:monthObjs,ports,diameters,custByPort,inc,blsByCell,salesByCust,custSet};
+  const inc={},blsByCell={},salesByCust={},custSet={},incTent={},pcByCell={},salesPBs={},salesActual={};
+  const shipById={};ships.forEach(s=>shipById[s.id]=s);
+  const assignedBL=pcAssignedBLids();
+  // incoming from purchase contracts — per port/diameter line: planned until BLs assigned, then actual (within 5% = confirmed)
+  (Store.d.purchases||[]).forEach(pc=>{const mk=purchaseArrivalKey(pc);if(!mk)return;
+    const plannedCell={};pcLines(pc).forEach(ln=>{const pk=invPortNorm(ln.port)+'|'+specLabel(ln.spec);plannedCell[pk]=(plannedCell[pk]||0)+(num(ln.tonnage)||0);});
+    const blCell={};(pc.blIds||[]).map(id=>shipById[id]).filter(Boolean).forEach(s=>{const pk=invPortNorm(s['PORT OF DELIVERY'])+'|'+specLabel(s.DIAMETER);(blCell[pk]=blCell[pk]||[]).push(s);});
+    new Set([...Object.keys(plannedCell),...Object.keys(blCell)]).forEach(pk=>{const key=pk+'|'+mk;
+      const planned=plannedCell[pk]||0;const bls=blCell[pk]||[];const alloc=bls.reduce((a,s)=>a+(num(s['NET WEIGHT'])||0),0);
+      const full=planned>0?alloc>=planned*0.95:bls.length>0;const disp=bls.length?alloc:planned;
+      inc[key]=(inc[key]||0)+disp;if(!full)incTent[key]=true;
+      (blsByCell[key]=blsByCell[key]||[]);bls.forEach(s=>blsByCell[key].push(s));
+      (pcByCell[key]=pcByCell[key]||[]).push({pn:pc['P Number'],planned,alloc,full,nbl:bls.length});});});
+  // incoming from standalone BLs (not assigned to a purchase contract) = actual
+  ships.forEach(s=>{if(assignedBL.has(s.id))return;const p=invPortNorm(s['PORT OF DELIVERY']);const dia=specLabel(s.DIAMETER);const mk=invArrivalKey(s);if(!mk)return;const key=p+'|'+dia+'|'+mk;inc[key]=(inc[key]||0)+(num(s['NET WEIGHT'])||0);(blsByCell[key]=blsByCell[key]||[]).push(s);});
+  // sales from contracts — actual allocated PB tonnage once PBs allocated, else contract tonnage
+  contracts.forEach(c=>{const p=invPortNorm(c['Service Port']);const dia=specLabel(c.Spec);const mk=invMonthKey(c.Quota||c._delivery);if(!mk)return;const cust=custShort(c.Customer);const bkey=p+'|'+dia;const ck=bkey+'|'+cust;
+    const sh=shipmentByBL(c['BL Allocation']);const pbs=Array.isArray(c.pbAlloc)?c.pbAlloc:[];
+    let ton,pbList=null;
+    if(sh&&pbs.length){const byPb={};shipContainers(sh).forEach(x=>{if(String(x.pb||'').trim())byPb[x.pb]=x;});
+      pbList=pbs.map(pb=>byPb[pb]).filter(Boolean).map(x=>({pb:x.pb,net:num(x.net)||0,bl:sh['BL NUMBER']}));
+      ton=pbList.reduce((a,x)=>a+x.net,0);}
+    else ton=num(c.Tonnage)||0;
+    salesByCust[ck]=salesByCust[ck]||{};salesByCust[ck][mk]=(salesByCust[ck][mk]||0)+ton;
+    (custSet[bkey]=custSet[bkey]||new Set()).add(cust);
+    const sck=ck+'|'+mk;
+    if(pbList){salesActual[sck]=true;(salesPBs[sck]=salesPBs[sck]||[]).push(...pbList);}
+  });
+  return {months:monthObjs,ports,diameters,custByPort,inc,blsByCell,salesByCust,custSet,incTent,pcByCell,salesPBs,salesActual};
 }
-function invBLPopup(port,dia,mk,label,bls){
-  const rows=bls.map(s=>{const net=num(s['NET WEIGHT'])||0;const al=blAllocatedNet(s);return {bl:s['BL NUMBER'],pn:s['PURCHASE NUMBER'],eta:s.ETA,net,al,uns:Math.max(0,net-al)};})
+function invBLPopup(port,dia,mk,label,bls,pcs){
+  pcs=pcs||[];
+  const seen=new Set();const ub=bls.filter(s=>seen.has(s.id)?false:(seen.add(s.id),true));
+  const rows=ub.map(s=>{const net=num(s['NET WEIGHT'])||0;const al=blAllocatedNet(s);return {bl:s['BL NUMBER'],pn:s['PURCHASE NUMBER'],eta:s.ETA,net,al,uns:Math.max(0,net-al)};})
     .sort((a,b)=>b.net-a.net);
   const T=k=>rows.reduce((a,r)=>a+r[k],0);
-  openModal(`<div class="modal-h">${svg('ship',19)}<h3>${esc(port)} · ${esc(dia)} · ${esc(label)}</h3><div class="hint">${rows.length} BL${rows.length===1?'':'s'} · incoming ${fmtN(T('net'),3)} t</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
-    <div class="modal-b"><div class="tbl-wrap" style="max-height:56vh;overflow:auto"><table class="tbl"><thead><tr><th>BL Number</th><th>Purchase</th><th>ETA</th><th class="num">Net t</th><th class="num">Allocated t</th><th class="num">Net unsold t</th></tr></thead>
+  const pcBanner=pcs.length?`<div class="callout amber" style="margin-bottom:12px">${svg('contract',16)}<div><b>Purchase contracts in this cell:</b> ${pcs.map(p=>`${esc(p.pn||'—')} — planned ${fmtN(p.planned,0)}t, BLs ${fmtN(p.alloc,1)}t (${p.nbl} BL${p.nbl===1?'':'s'})${p.full?'':' <span class="chip amber" style="padding:0 6px">tentative</span>'}`).join(' · ')}<div class="t-sub" style="margin-top:4px">Yellow figures are planned tonnage shown until the assigned BLs cover the contract (within \u00b15%).</div></div></div>`:'';
+  openModal(`<div class="modal-h">${svg('ship',19)}<h3>${esc(port)} · ${esc(dia)} · ${esc(label)}</h3><div class="hint">${rows.length} BL${rows.length===1?'':'s'} · confirmed ${fmtN(T('net'),3)} t</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b">${pcBanner}${rows.length?`<div class="tbl-wrap" style="max-height:50vh;overflow:auto"><table class="tbl"><thead><tr><th>BL Number</th><th>Purchase</th><th>ETA</th><th class="num">Net t</th><th class="num">Allocated t</th><th class="num">Net unsold t</th></tr></thead>
       <tbody>${rows.map(r=>`<tr class="rowlink" data-bl="${esc(r.bl)}"><td class="mono t-strong">${esc(r.bl)}</td><td class="mono t-sub">${esc(r.pn||'—')}</td><td class="mono">${fmtDate(r.eta)}</td><td class="num">${fmtN(r.net,3)}</td><td class="num" style="color:var(--green)">${fmtN(r.al,3)}</td><td class="num" style="color:${r.uns>0.01?'var(--amber)':'var(--muted)'}">${fmtN(r.uns,3)}</td></tr>`).join('')}
-      <tr class="t-strong" style="border-top:2px solid var(--border-2)"><td colspan="3" style="text-align:right">Total</td><td class="num">${fmtN(T('net'),3)}</td><td class="num" style="color:var(--green)">${fmtN(T('al'),3)}</td><td class="num" style="color:var(--amber)">${fmtN(T('uns'),3)}</td></tr></tbody></table></div></div>
+      <tr class="t-strong" style="border-top:2px solid var(--border-2)"><td colspan="3" style="text-align:right">Total</td><td class="num">${fmtN(T('net'),3)}</td><td class="num" style="color:var(--green)">${fmtN(T('al'),3)}</td><td class="num" style="color:var(--amber)">${fmtN(T('uns'),3)}</td></tr></tbody></table></div>`:'<div class="empty" style="padding:20px">No BLs assigned yet — this is planned purchase-contract tonnage.</div>'}</div>
     <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
   document.querySelectorAll('#modal [data-bl]').forEach(tr=>tr.onclick=()=>{const s=Store.d.shipments.find(x=>String(x['BL NUMBER'])===tr.dataset.bl);if(s){closeModal();editShipment(s.id);}});
+}
+function invSalesPBPopup(label,pbs){
+  const rows=pbs.slice().sort((a,b)=>String(a.bl).localeCompare(String(b.bl))||seqCmp(a.pb,b.pb));
+  const tot=rows.reduce((a,r)=>a+(r.net||0),0);
+  openModal(`<div class="modal-h">${svg('box',19)}<h3>${esc(label)}</h3><div class="hint">${rows.length} PB${rows.length===1?'':'s'} allocated for delivery · ${fmtN(tot,3)} t</div><button class="x" onclick="closeModal()">${svg('close',18)}</button></div>
+    <div class="modal-b"><div class="tbl-wrap" style="max-height:56vh;overflow:auto"><table class="tbl"><thead><tr><th>PB Number</th><th>BL Number</th><th class="num">Net t</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td class="mono t-strong">${esc(r.pb)}</td><td class="mono t-sub">${esc(r.bl)}</td><td class="num">${fmtN(r.net,3)}</td></tr>`).join('')}
+      <tr class="t-strong" style="border-top:2px solid var(--border-2)"><td colspan="2" style="text-align:right">Total</td><td class="num">${fmtN(tot,3)}</td></tr></tbody></table></div></div>
+    <div class="modal-f"><button class="btn btn-ghost" onclick="closeModal()">Close</button></div>`,{wide:true,noFocus:true});
 }
 function invAllMonths(){
   const keys=new Set();
@@ -2567,9 +3014,9 @@ function projInventory(v){
       const blockInc=activeMonths.some(m=>M.inc[bkey+'|'+m.key]);
       const custs=(M.custSet[bkey]?[...M.custSet[bkey]]:[]).filter(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};return activeMonths.some(m=>sc[m.key]);}).sort();
       if(!blockInc&&!custs.length)return;
-      bodyRows+=`<tr class="inv-inc"><td class="inv-stick">${esc(dia)} · Incoming</td>${activeMonths.map(m=>{const key=bkey+'|'+m.key;const val=M.inc[key]||0;const has=(M.blsByCell[key]||[]).length;return `<td class="num inv-in ${has?'inv-click':''}" ${has?`data-cell="${esc(key)}" data-label="${esc(m.label)}"`:''}>${val?fmtN(val,1):''}</td>`;}).join('')}</tr>`;
+      bodyRows+=`<tr class="inv-inc"><td class="inv-stick">${esc(dia)} · Incoming</td>${activeMonths.map(m=>{const key=bkey+'|'+m.key;const val=M.inc[key]||0;const tent=M.incTent[key];const clickable=val>0.001||(M.blsByCell[key]||[]).length;return `<td class="num ${tent?'inv-tent':'inv-in'} ${clickable?'inv-click':''}" ${clickable?`data-cell="${esc(key)}" data-label="${esc(m.label)}"`:''}>${val?fmtN(val,1):''}</td>`;}).join('')}</tr>`;
       custs.forEach(c=>{const sc=M.salesByCust[bkey+'|'+c]||{};
-        bodyRows+=`<tr class="inv-cust"><td class="inv-stick">${esc(c)}</td>${activeMonths.map(m=>`<td class="num ${sc[m.key]?'inv-sa':''}">${sc[m.key]?'-'+fmtN(sc[m.key],1):''}</td>`).join('')}</tr>`;});
+        bodyRows+=`<tr class="inv-cust"><td class="inv-stick">${esc(c)}</td>${activeMonths.map(m=>{const sck=bkey+'|'+c+'|'+m.key;const act=M.salesActual[sck];return `<td class="num ${sc[m.key]?'inv-sa':''} ${act?'inv-click':''}" ${act?`data-sales="${esc(sck)}" data-slabel="${esc(c+' · '+m.label)}"`:''}>${sc[m.key]?'-'+fmtN(sc[m.key],1):''}</td>`;}).join('')}</tr>`;});
       let bal=0;
       bodyRows+=`<tr class="inv-bal"><td class="inv-stick">${esc(dia)} · Balance</td>${activeMonths.map(m=>{const inV=M.inc[bkey+'|'+m.key]||0;const saV=custs.reduce((a,c)=>a+((M.salesByCust[bkey+'|'+c]||{})[m.key]||0),0);bal+=inV-saV;return `<td class="num">${fmtN(bal,1)}</td>`;}).join('')}</tr>`;
     });
@@ -2577,7 +3024,8 @@ function projInventory(v){
     card.innerHTML=`<div class="card-h">${svg('building',16)}<h3>${esc(port)}</h3><div class="hint">${homeCusts.length} customer${homeCusts.length===1?'':'s'} served from here</div></div>
       <div class="card-b flush"><div class="tbl-wrap"><table class="tbl inv-tbl"><thead><tr><th class="inv-stick">${esc(port)} (t)</th>${activeMonths.map(m=>`<th class="num">${esc(m.label)}</th>`).join('')}</tr></thead><tbody>${bodyRows}</tbody></table></div></div>`;
     hostEl.append(card);
-    card.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const key=td.dataset.cell;const[p,d,m]=key.split('|');invBLPopup(p,d,m,td.dataset.label,M.blsByCell[key]||[]);});
+    card.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const key=td.dataset.cell;const[p,d,m]=key.split('|');invBLPopup(p,d,m,td.dataset.label,M.blsByCell[key]||[],M.pcByCell[key]||[]);});
+    card.querySelectorAll('[data-sales]').forEach(td=>td.onclick=()=>{invSalesPBPopup(td.dataset.slabel,M.salesPBs[td.dataset.sales]||[]);});
   };
   const render=()=>{host.innerHTML='';invPort==='Summary'?drawSummary(host):drawPort(host,invPort);};
   render();
@@ -2615,7 +3063,7 @@ function projForecast(v){
     e.allocs.sort((a,b)=>(parseDate(a.Quota)||0)-(parseDate(b.Quota)||0));
     e.allocs.forEach((c,i)=>{
       const pShown=e.s['PURCHASE NUMBER']!==lastP;const blFirst=i===0;
-      bd.append(el('tr',{class:'rowlink',onclick:()=>lifecycleLookup(c['S Number']),html:`
+      bd.append(el('tr',{class:'rowlink',onclick:()=>lifecycleLookup(c['S Number'],c.Quota?fmtMY(c.Quota):null),html:`
         <td class="mono t-strong">${pShown?esc(e.s['PURCHASE NUMBER']||'—'):''}</td>
         <td class="mono t-sub">${pShown?esc(quotaLabel(e.s['QUOTA MONTH'])):''}</td>
         <td class="mono ${blFirst?'t-strong':''}">${blFirst?esc(e.s['BL NUMBER']):''}</td>
@@ -2853,6 +3301,7 @@ function editShipment(id){
       ${seln('Invoice paid status','f_invpaid',s['INVOICE PAID STATUS'],['Paid','Open'])}
       ${fld('Invoice due date','f_invdue',s['INVOICE DUE DATE'],'date')}
       ${seln('CD paid status','f_cdpaid',s['CD PAID STATUS'],['Paid','Open'])}
+      <div class="fg full"><label>Assign to purchase contract</label><select class="inp" id="f_pc"><option value="">— none (standalone BL) —</option>${(Store.d.purchases||[]).map(pc=>{const cur=(pc.blIds||[]).includes(s.id);return `<option value="${esc(pc.id)}" ${cur?'selected':''}>${esc(pc['P Number'])} · ${fmtMY(pc['Purchase Quota'])} · ${esc(pcPorts(pc).join('/')||'')} ${esc(pcSpecs(pc).join('/'))} · planned ${fmtN(pcPlannedTotal(pc),0)}t</option>`;}).join('')}</select></div>
     </div>
     <div class="divider"></div>
     <div class="hint" style="margin-bottom:8px;font-weight:600;color:var(--ink-2)">Computed (live)</div>
@@ -2870,6 +3319,10 @@ function editShipment(id){
     const bl=gv('f_bl');if(!bl){toast('BL number required','amber');return;}
     const rec={'PORT OF DELIVERY':gv('f_port'),'PURCHASE NUMBER':gv('f_pn'),'QUOTA MONTH':gv('f_qm')||null,'DELIVERY MONTH':gv('f_dm')||null,'BL NUMBER':bl,'DIAMETER':gv('f_dia'),'SOB DATE':gv('f_sob')||null,'ETA':gv('f_eta')||null,'NET WEIGHT':gvn('f_net'),'PRICE MT':gvn('f_price'),'STWG REF':gv('f_stwgref'),'FINANCIER':gv('f_fin')||null,'INVOICE PAID STATUS':gv('f_invpaid')||null,'INVOICE DUE DATE':gv('f_invdue')||null,'CD PAID STATUS':gv('f_cdpaid')||null};
     if(id){Object.assign(s,rec);audit('shipment edited',bl);}else{Store.d.shipments.push({id:uid('sh'),...rec});audit('shipment added',bl);}
+    // assign this BL to the chosen purchase contract (and remove from any other)
+    const shipId=id||Store.d.shipments[Store.d.shipments.length-1].id;
+    const chosen=gv('f_pc');
+    (Store.d.purchases||[]).forEach(pc=>{pc.blIds=(pc.blIds||[]).filter(x=>x!==shipId);if(pc.id===chosen)pc.blIds.push(shipId);});
     afterSave('Shipment saved');
   };
   if(canDel)$('#mDel').onclick=()=>{if(confirm('Delete this shipment?')){Store.d.shipments=Store.d.shipments.filter(x=>x.id!==id);audit('shipment deleted',s['BL NUMBER']);afterSave('Shipment deleted');}};
@@ -3251,14 +3704,16 @@ RENDER.payables=function(v){
     if(s._stwg)der.push({due:s['STWG DUE DATE'],cat:'Steinweg / logistics',ref:s['BL NUMBER'],supplier:'C. Steinweg',amount:s._stwg,status:String(s['STWG PAID STATUS']||'').toLowerCase()==='paid'?'Paid':'Open',ccy:'EUR'});
   });
   const manual=f.payables.map(p=>({due:p.dueDate,cat:p.category||'Other',ref:p.ref||'',supplier:p.supplier||'',amount:num(p.amount),status:p.status||'Open',ccy:p.currency||'EUR'}));
-  const all=[...der,...manual].sort((a,b)=>(parseDate(a.due)||9e15)-(parseDate(b.due)||9e15));
+  // AP raised against purchase contracts (buy-side payables to suppliers)
+  const raisedAP=(Store.d.ap||[]).map(a=>({due:a['DUE DATE'],cat:'Purchase contract (AP)',ref:a['P Number']||'',supplier:a.Supplier||'Supplier',amount:num(a.Amount),status:a.Status||'Open',ccy:'EUR'}));
+  const all=[...der,...raisedAP,...manual].sort((a,b)=>(parseDate(a.due)||9e15)-(parseDate(b.due)||9e15));
   const open=all.filter(p=>String(p.status).toLowerCase()!=='paid').reduce((s,p)=>s+(p.amount||0),0);
   const byCat={};all.filter(p=>String(p.status).toLowerCase()!=='paid').forEach(p=>byCat[p.cat]=(byCat[p.cat]||0)+(p.amount||0));
   v.insertAdjacentHTML('beforeend',finKpiRow([
     ['Payable lines',all.length],
     ['Open payables',fmtM(open),'var(--amber)'],
-    ['Customs duty (open)',fmtM(byCat['Customs duty']||0)],
-    ['Logistics (open)',fmtM(byCat['Steinweg / logistics']||0)]
+    ['Purchase AP (open)',fmtM(byCat['Purchase contract (AP)']||0),(byCat['Purchase contract (AP)']||0)?'var(--blue)':undefined],
+    ['Customs + logistics (open)',fmtM((byCat['Customs duty']||0)+(byCat['Steinweg / logistics']||0))]
   ]));
   const cols=[{h:'Due',k:'due',mono:1},{h:'Category',k:'cat'},{h:'Reference (BL)',k:'ref',mono:1},{h:'Supplier',k:'supplier'},{h:'Amount',k:'amount',num:1,strong:1},{h:'Status',k:'status'}];
   const rows=all.map(p=>({due:fmtDate(p.due),cat:esc(p.cat),ref:esc(p.ref||''),supplier:esc(p.supplier||''),amount:p.amount!=null?fmtEur2(p.amount):'',
